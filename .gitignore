@@ -10,3 +10,5 @@ build/
 results/
 .coverage
 htmlcov/
+/docs/IMPLEMENTATION_PLAN_RU.md
+/docs/EXPERIMENT_RESULTS_RU.md
