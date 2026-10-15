@@ -14,12 +14,14 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import plotly.graph_objects as go
 
+from .variants import obstacle_label, rrt_tool_path, variants_html
+
 if TYPE_CHECKING:
     from .trajectory import JointSplineTrajectory
 
 
 CAMERA_PRESETS = {
-    "isometric": {"eye": {"x": 1.6, "y": -2.2, "z": 1.35}, "up": {"x": 0, "y": 0, "z": 1}},
+    "isometric": {"eye": {"x": 1.36, "y": -1.87, "z": 1.15}, "up": {"x": 0, "y": 0, "z": 1}},
     "front": {"eye": {"x": 0, "y": -2.8, "z": 0.4}, "up": {"x": 0, "y": 0, "z": 1}},
     "side": {"eye": {"x": 2.8, "y": 0, "z": 0.4}, "up": {"x": 0, "y": 0, "z": 1}},
     "top": {"eye": {"x": 0, "y": 0, "z": 3.0}, "up": {"x": 0, "y": 1, "z": 0}},
@@ -88,6 +90,10 @@ def build_interactive_figure(
     baseline: JointSplineTrajectory | None = None,
     frame_count: int = 55,
     view: str = "isometric",
+    *,
+    trajectories: list[JointSplineTrajectory] | None = None,
+    records: list[dict[str, Any]] | None = None,
+    rrt_path: Any = None,
 ) -> go.Figure:
     """Настоящие объёмные звенья, фиксированная цель и кадры исходного B-сплайна.
 
@@ -108,11 +114,34 @@ def build_interactive_figure(
         raise ValueError(f"Неизвестный ракурс: {view}")
     if not isinstance(frame_count, int) or frame_count < 2:
         raise ValueError("Число кадров должно быть целым и не меньше двух")
+    if records is not None:
+        if trajectories is None:
+            raise ValueError("Для представителей необходим массив сохранённых траекторий")
+        balanced_index = next(
+            record["solution_index"] for record in records if record["key"] == "balanced"
+        )
+        trajectory = trajectories[balanced_index]
     data = trajectory.sample(frame_count)
     positions = _positions(robot, data["q"])
     goal = _goal_position(robot, scene, trajectory)
     tool = positions[:, -1]
-    center, radius = _scene_bounds(np.concatenate((positions.reshape(-1, 3), [goal])), scene)
+    view_points = [positions.reshape(-1, 3), goal[None, :]]
+    variant_tools = []
+    for record in records or []:
+        variant_tool = _positions(robot, trajectories[record["solution_index"]].sample(181)["q"])[
+            :, -1
+        ]
+        variant_tools.append(variant_tool)
+        view_points.append(variant_tool)
+    baseline_tool = None
+    if baseline is not None:
+        baseline_tool = _positions(robot, baseline.sample(121)["q"])[:, -1]
+        view_points.append(baseline_tool)
+    rrt_tool = None
+    if rrt_path is not None:
+        rrt_tool = rrt_tool_path(robot, rrt_path)
+        view_points.append(rrt_tool)
+    center, radius = _scene_bounds(np.concatenate(view_points), scene)
     radii = _link_radii(robot, positions.shape[1] - 1)
     figure = go.Figure()
 
@@ -129,7 +158,7 @@ def build_interactive_figure(
                 **_mesh_arrays(faces),
                 color="#bd6670",
                 opacity=0.4,
-                name=str(obstacle.get("label", obstacle.get("name", "Препятствие"))),
+                name=obstacle_label(obstacle, index),
                 showlegend=index == 0,
                 legendgroup="препятствия",
                 hoverinfo="name",
@@ -168,27 +197,52 @@ def build_interactive_figure(
             )
         )
 
-    figure.add_trace(
-        go.Scatter3d(
-            x=tool[:, 0],
-            y=tool[:, 1],
-            z=tool[:, 2],
-            mode="lines",
-            line={"color": "#3d83b5", "width": 3, "dash": "dot"},
-            name="Путь инструмента",
-            hoverinfo="skip",
+    if records is not None:
+        for record, variant_tool in zip(records, variant_tools, strict=True):
+            figure.add_trace(
+                go.Scatter3d(
+                    x=variant_tool[:, 0],
+                    y=variant_tool[:, 1],
+                    z=variant_tool[:, 2],
+                    mode="lines",
+                    line={"color": record["color"], "width": 4},
+                    name=f"{record['label']} · № {record['solution_index']}",
+                    hoverinfo="skip",
+                )
+            )
+    else:
+        figure.add_trace(
+            go.Scatter3d(
+                x=tool[:, 0],
+                y=tool[:, 1],
+                z=tool[:, 2],
+                mode="lines",
+                line={"color": "#3d83b5", "width": 3, "dash": "dot"},
+                name="Путь сбалансированного B-сплайна",
+                hoverinfo="skip",
+            )
         )
-    )
-    if baseline is not None:
-        baseline_tool = _positions(robot, baseline.sample(121)["q"])[:, -1]
+    if baseline_tool is not None:
         figure.add_trace(
             go.Scatter3d(
                 x=baseline_tool[:, 0],
                 y=baseline_tool[:, 1],
                 z=baseline_tool[:, 2],
                 mode="lines",
-                line={"color": "#b07820", "width": 3, "dash": "dash"},
-                name="Без NSGA-II",
+                line={"color": "#737373", "width": 4, "dash": "dash"},
+                name="B-сплайн без NSGA-II",
+                hoverinfo="skip",
+            )
+        )
+    if rrt_tool is not None:
+        figure.add_trace(
+            go.Scatter3d(
+                x=rrt_tool[:, 0],
+                y=rrt_tool[:, 1],
+                z=rrt_tool[:, 2],
+                mode="lines",
+                line={"color": "#334155", "width": 3, "dash": "dot"},
+                name="RRT*: линейные рёбра в углах суставов",
                 hoverinfo="skip",
             )
         )
@@ -308,12 +362,17 @@ def build_interactive_figure(
     }
     figure.update_layout(
         title={
-            "text": escape(str(scene.get("label", scene.get("name", "Учебная сцена 6R")))),
+            "text": escape(
+                str(scene.get("label", scene.get("title", scene.get("name", "Учебная сцена 6R"))))
+            ),
             "x": 0.03,
+            "y": 0.99,
+            "yanchor": "top",
+            "font": {"size": 16},
         },
         font={"family": "Arial, sans-serif", "size": 13, "color": "#233447"},
         height=740,
-        margin={"l": 0, "r": 0, "t": 110, "b": 85},
+        margin={"l": 0, "r": 0, "t": 175, "b": 85},
         paper_bgcolor="white",
         uirevision="камера-6R",
         showlegend=True,
@@ -348,7 +407,9 @@ def build_interactive_figure(
                 "type": "buttons",
                 "direction": "right",
                 "x": 0,
-                "y": 1.16,
+                "y": 1.22,
+                "xanchor": "left",
+                "yanchor": "top",
                 "showactive": False,
                 "buttons": [
                     {"label": "▶ Пуск", "method": "animate", "args": [None, animation_settings]},
@@ -367,10 +428,12 @@ def build_interactive_figure(
                 ],
             },
             {
-                "type": "buttons",
-                "direction": "right",
-                "x": 0.4,
-                "y": 1.16,
+                "type": "dropdown",
+                "direction": "down",
+                "x": 0,
+                "y": 1.10,
+                "xanchor": "left",
+                "yanchor": "top",
                 "showactive": True,
                 "active": list(CAMERA_PRESETS).index(view),
                 "buttons": [
@@ -413,6 +476,15 @@ def build_interactive_figure(
             "duration": trajectory.duration,
             "sample_times": data["time"].tolist(),
             "views": list(CAMERA_PRESETS),
+            "animation_source": "balanced_bspline",
+            "animation_solution_index": next(
+                (
+                    record["solution_index"]
+                    for record in records or []
+                    if record["key"] == "balanced"
+                ),
+                None,
+            ),
         },
     )
     return figure
@@ -425,9 +497,23 @@ def interactive_fragment(
     baseline: JointSplineTrajectory | None = None,
     frame_count: int = 55,
     view: str = "isometric",
+    *,
+    trajectories: list[JointSplineTrajectory] | None = None,
+    records: list[dict[str, Any]] | None = None,
+    rrt_path: Any = None,
 ) -> str:
     """Самодостаточный фрагмент отчёта вместе с локально встроенной библиотекой."""
-    figure = build_interactive_figure(robot, scene, trajectory, baseline, frame_count, view)
+    figure = build_interactive_figure(
+        robot,
+        scene,
+        trajectory,
+        baseline,
+        frame_count,
+        view,
+        trajectories=trajectories,
+        records=records,
+        rrt_path=rrt_path,
+    )
     goal = figure.layout.meta["goal"]
     description = (
         '<section style="padding:20px;background:white;border-radius:12px;margin:24px 0">'
@@ -435,13 +521,18 @@ def interactive_fragment(
         "<p>Вращение: перетаскивайте сцену левой кнопкой. Масштаб: колесо мыши. "
         "Сдвиг: правая кнопка. Ракурс можно менять во время воспроизведения. "
         "Ползунок показывает физическое время, полный показ длится около 5,5 с.</p>"
+        "<p><strong>Анимация воспроизводит сбалансированный B-сплайн.</strong> "
+        "Каждый кадр: суставные углы q(t) из B-сплайна → прямая кинематика. "
+        "Прямые звенья изображают жёсткие тела; кривые линии показывают путь инструмента. "
+        "Линии остальных вариантов позволяют сравнить геометрию путей.</p>"
         '<p style="color:#b5066d;background:#fff0f8;padding:10px;border:1px solid #ed168f">'
         "<strong>◆ ЦЕЛЬ — фиксированное положение инструмента:</strong> "
         f"x = {goal[0]:.3f}; y = {goal[1]:.3f}; z = {goal[2]:.3f} м. "
         "Жёлтый маркер — текущий инструмент; зелёный — старт.</p>"
     )
     return (
-        description
+        (variants_html(records) if records is not None else "")
+        + description
         + figure.to_html(
             full_html=False,
             include_plotlyjs=True,

@@ -23,8 +23,7 @@ def test_catalog_describes_all_packaged_scenes():
     for item in catalog:
         assert item["description"]
         assert item["obstacle_count"] == len(load_named_scene(item["name"])["obstacles"])
-        if item["name"] != "simple":
-            assert item["obstacle_count"] >= 6
+        assert item["obstacle_count"] >= 6
 
 
 @pytest.mark.parametrize("name", [item["name"] for item in list_scenes()])
@@ -41,10 +40,26 @@ def test_scenes_have_valid_endpoints_and_checked_detour(name):
     assert all(checker.is_motion_valid(a, b) for a, b in zip(detour[:-1], detour[1:], strict=True))
 
 
-@pytest.mark.parametrize("name", ["scattered", "gate", "shelves", "cluttered"])
+@pytest.mark.parametrize("name", ["simple", "scattered", "gate", "shelves", "cluttered"])
 def test_editable_scene_examples_match_package(name):
-    source = Path(__file__).resolve().parents[1] / "configs" / "scenes" / f"{name}.yaml"
+    root = Path(__file__).resolve().parents[1] / "configs"
+    source = root / "simple.yaml" if name == "simple" else root / "scenes" / f"{name}.yaml"
     assert yaml.safe_load(source.read_text(encoding="utf-8")) == load_named_scene(name)
+
+
+def test_simple_goal_is_between_posts_with_a_comfortable_clearance():
+    scene = load_named_scene("simple")
+    robot = RobotModel(scene)
+    checker = CollisionChecker(robot, scene["safety_margin"])
+    goal = robot.tool_position(scene["goal"])
+    obstacles = {obstacle["name"]: obstacle for obstacle in scene["obstacles"]}
+    left, right = obstacles["goal_left_post"], obstacles["goal_right_post"]
+    assert left["position"][0] + left["half_size"][0] < goal[0]
+    assert goal[0] < right["position"][0] - right["half_size"][0]
+    for obstacle in (left, right):
+        assert abs(goal[1] - obstacle["position"][1]) < obstacle["half_size"][1]
+        assert abs(goal[2] - obstacle["position"][2]) < obstacle["half_size"][2]
+    assert checker.minimum_clearance(scene["goal"]) >= 0.05
 
 
 def test_loading_does_not_share_mutable_scene_data():

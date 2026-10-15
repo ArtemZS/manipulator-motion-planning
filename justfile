@@ -37,5 +37,11 @@ views directory="results/demo":
 experiments:
     uv run manipulator-planning experiments --workers 2
 
+showcase series="results/experiments_current" output="results/showcase":
+    uv run manipulator-planning showcase "{{series}}" --output "{{output}}"
+
+serve port="8766":
+    uv run python -m http.server {{port}} --bind 127.0.0.1 --directory results
+
 build:
     uv build

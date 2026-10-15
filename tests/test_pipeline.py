@@ -74,6 +74,28 @@ def test_saved_coefficients_replay_to_the_same_objectives(completed_run):
     assert all(item["feasible"] for item in replay["solutions"])
 
 
+def test_replay_passes_original_rrt_and_saved_spline_to_renderer(completed_run, monkeypatch):
+    directory, report = completed_run
+    received = {}
+
+    def capture(*args, **kwargs):
+        received["trajectory"] = args[3][args[5]]
+        received["rrt_path"] = kwargs["rrt_path"]
+        return {}
+
+    monkeypatch.setattr("manipulator_planning.visualization.create_report", capture)
+    replay = replay_results(directory)
+    with np.load(directory / "trajectories.npz", allow_pickle=False) as saved:
+        np.testing.assert_array_equal(received["rrt_path"], saved["rrt_path"])
+        np.testing.assert_allclose(
+            received["trajectory"].sample()["q"],
+            saved[f"solution_{report['selected_index']}_q"],
+        )
+    variants = replay["representative_variants"]
+    assert len(variants) == 4
+    assert variants[-1]["solution_index"] == report["selected_index"]
+
+
 def test_invalid_start_is_a_failed_run_not_a_successful_one(tmp_path):
     scene = load_scene()
     scene["start"][0] = 100

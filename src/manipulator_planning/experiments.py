@@ -1,5 +1,7 @@
 """Парные серии экспериментов с сохранением отказов и общей нормировкой критериев."""
 
+import ast
+import copy
 import csv
 import hashlib
 import html
@@ -21,6 +23,62 @@ OBJECTIVES = ("J_tau", "J_jerk", "T")
 METHODS = ("baseline", "full")
 METHOD_LABELS = {"baseline": "RRT* → B-сплайн", "full": "RRT* → B-сплайн → NSGA-II"}
 BOOTSTRAP_SAMPLES = 4000
+CALCULATION_FILES = (
+    "collision.py",
+    "objectives.py",
+    "optimization.py",
+    "planning.py",
+    "robot.py",
+    "trajectory.py",
+    "validation.py",
+    "assets/educational_6r.xml",
+)
+
+
+def calculation_hashes() -> dict[str, str]:
+    """Зафиксировать численные модули и модель независимо от оформления и других сцен."""
+    root = Path(__file__).parent
+    result = {
+        name: hashlib.sha256((root / name).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        for name in CALCULATION_FILES
+    }
+    result["pipeline_numeric_prefix"] = pipeline_calculation_hash(
+        (root / "pipeline.py").read_bytes()
+    )
+    return result
+
+
+def pipeline_calculation_hash(source: bytes) -> str:
+    """Сравнить AST настроек, сглаживания и вычислительной части каскада до артефактов."""
+    tree = ast.parse(source.decode("utf-8-sig"))
+    selected = []
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == "PipelineOptions":
+            selected.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == "_build_baseline":
+            selected.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == "_run":
+            prefix = copy.deepcopy(node)
+            for index, statement in enumerate(prefix.body):
+                if (
+                    isinstance(statement, ast.Assign)
+                    and isinstance(statement.value, ast.Constant)
+                    and statement.value.value == "artifacts"
+                    and isinstance(statement.targets[0], ast.Subscript)
+                    and isinstance(statement.targets[0].value, ast.Name)
+                    and statement.targets[0].value.id == "progress"
+                    and isinstance(statement.targets[0].slice, ast.Constant)
+                    and statement.targets[0].slice.value == "failure_stage"
+                ):
+                    prefix.body = prefix.body[:index]
+                    break
+            else:
+                raise ValueError("Не найдена граница вычислений и артефактов в пайплайне")
+            selected.append(prefix)
+    if len(selected) != 3:
+        raise ValueError("Не найдены все вычислительные определения пайплайна")
+    encoded = "\n".join(ast.dump(node, include_attributes=False) for node in selected).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _source_hash() -> str:
@@ -397,7 +455,12 @@ def _plot_statistics(rows: list[dict], output_dir: Path) -> None:
         axis.set_title(label)
         axis.grid(axis="y", alpha=0.25)
         if metric in {"J_tau", "J_jerk", "runtime_numerical_s"}:
-            axis.set_yscale("symlog", linthresh=1e-4)
+            finite = [row[metric] for row in rows if row["success"] and row[metric] is not None]
+            if finite and min(finite) > 0:
+                axis.set_yscale("log")
+            elif finite:
+                axis.set_yscale("symlog", linthresh=1e-4)
+                axis.set_ylim(bottom=0)
     axis = axes.flat[-1]
     for method_index, method in enumerate(METHODS):
         rates = []
@@ -413,7 +476,7 @@ def _plot_statistics(rows: list[dict], output_dir: Path) -> None:
         )
     axis.set_xticks(range(len(scenes)), scenes, rotation=15, ha="right")
     axis.set_ylim(0, 110)
-    axis.set_title("Успешность, % всех запланированных запусков")
+    axis.set_title("Успешность по всем парам, %")
     axis.legend(fontsize=8, loc="upper right")
     fig.suptitle("Парное сравнение: общий путь RRT* и общий базовый B-сплайн", fontsize=14)
     fig.savefig(output_dir / "statistics.png", dpi=160)
@@ -484,6 +547,54 @@ def _create_report(summary: dict, rows: list[dict], output_dir: Path) -> None:
             )
         paired_rows.append(cells)
         lines.append("| " + " | ".join(cells) + " |")
+    extreme_labels = {
+        "min_effort": "Минимум усилий",
+        "min_jerk": "Минимум рывка",
+        "min_time": "Минимум времени",
+    }
+    extreme_rows = []
+    lines.extend(
+        [
+            "",
+            "## Крайние решения: медианы парных изменений",
+            "",
+            "Каждая строка выбирает отдельную траекторию. Улучшение одного критерия "
+            "не означает одновременного улучшения остальных.",
+            "",
+            "| Сцена | Выбор | ΔJτ, % | Δрывка, % | ΔT, % |",
+            "|---|---|---:|---:|---:|",
+        ]
+    )
+    for comparison in summary["paired"]:
+        if comparison["selection"] not in extreme_labels:
+            continue
+        cells = [
+            comparison["scene"],
+            extreme_labels[comparison["selection"]],
+            *[
+                _number(comparison["changes_full_minus_baseline"][key]["percent"]["median"])
+                for key in OBJECTIVES
+            ],
+        ]
+        extreme_rows.append(cells)
+        lines.append("| " + " | ".join(cells) + " |")
+    balanced = [
+        item
+        for item in summary["paired"]
+        if item["selection"] == "balanced" and item["paired_successes"] > 0
+    ]
+    jerk_decreases = sum(
+        item["changes_full_minus_baseline"]["J_jerk"]["absolute"]["median"] < 0 for item in balanced
+    )
+    interpretation = (
+        f"У выбранного компромисса медианный рывок уменьшился в {jerk_decreases} из "
+        f"{len(balanced)} сцен с успешными парами. Длительность и усилия нужно оценивать "
+        "по отдельным столбцам: снижение рывка часто покупается их увеличением. "
+        "Крайние решения показывают доступные альтернативы, а не одну универсально "
+        "лучшую траекторию. Гиперобъём характеризует расширение доступного множества "
+        "компромиссов; в него заранее включена проверенная база."
+    )
+    lines.extend(["", "## Что показывают результаты", "", interpretation])
     caveats = [
         "Серия использует конечные бюджеты и выбранный набор seed. Это приближённый фронт, "
         "а не доказательство глобальной Парето-оптимальности или превосходства на всех задачах.",
@@ -514,6 +625,19 @@ def _create_report(summary: dict, rows: list[dict], output_dir: Path) -> None:
         "Стоимость подготовки пары общая; это не независимый замер ускорения двух "
         "программ на свободной машине.",
     ]
+    if summary.get("aggregation"):
+        caveats.append(
+            "Это явное объединение сохранённых серий, а не повторное использование "
+            "кеша под новым хешем. Исходные fingerprints, файлы и происхождение каждой "
+            "пары сохранены в provenance.json. Перезапуск после ошибки ввода-вывода "
+            "помечен отдельно. Времена восстановления измерены при иной нагрузке."
+        )
+        caveats.append(
+            "Успешность объединённой серии относится к логическим парам (сцена, seed) "
+            "после операционного повтора ошибки сохранения. Первоначальный отказ "
+            "ввода-вывода остаётся в исходной серии и provenance.json; вычислительные "
+            "отказы не заменяются. Число физических попыток указано в summary.json."
+        )
     lines.extend(
         [
             "",
@@ -558,6 +682,11 @@ def _create_report(summary: dict, rows: list[dict], output_dir: Path) -> None:
         + table(
             ["Сцена", "Пар", "ΔJτ, % [95% ДИ]", "Δрывка, % [95% ДИ]", "ΔT, % [95% ДИ]"], paired_rows
         )
+        + "<h2>Крайние решения: медианы парных изменений</h2>"
+        + table(["Сцена", "Выбор", "ΔJτ, %", "Δрывка, %", "ΔT, %"], extreme_rows)
+        + "<h2>Что показывают результаты</h2><p>"
+        + html.escape(interpretation)
+        + "</p>"
         + "<h2>Интерпретация и ограничения</h2><ul>"
         + "".join(f"<li>{html.escape(text)}</li>" for text in caveats)
         + '</ul><p><a href="runs.csv">Все запуски CSV</a> · <a href="summary.csv">Сводка CSV</a> · '
@@ -676,6 +805,7 @@ def run_experiments(
         "seeds": seeds,
         "options": asdict(replace(options, plots=False, method="full")),
         "source_hash": source_hash,
+        "calculation_sources": calculation_hashes(),
         "environment": environment,
         "protocol": {
             "pairing": "Один запуск RRT* и сглаживания на пару; база извлекается до NSGA-II",

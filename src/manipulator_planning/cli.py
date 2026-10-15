@@ -44,6 +44,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     replay.add_argument("--frames", type=int, default=55)
     subcommands.add_parser("scenes", help="Показать каталог доступных 3D-сцен")
+    showcase = subcommands.add_parser(
+        "showcase", help="Анимации и четыре варианта для каждой сцены серии"
+    )
+    showcase.add_argument("directory", type=Path, help="Каталог завершённой серии экспериментов")
+    showcase.add_argument("--output", type=Path, default=Path("results/showcase"))
+    showcase.add_argument(
+        "--seed", type=int, default=0, help="Предпочтительный демонстрационный seed"
+    )
+    showcase.add_argument("--frames", type=int, default=121)
+    showcase.add_argument(
+        "--views",
+        nargs="+",
+        choices=("isometric", "front", "side", "top"),
+        default=["isometric", "top"],
+    )
     experiments = subcommands.add_parser("experiments", help="Парные пакетные эксперименты")
     experiments.add_argument(
         "--scenes", nargs="+", default=["simple", "scattered", "gate", "shelves", "cluttered"]
@@ -92,7 +107,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     f"{item['name']}: {item['obstacle_count']} препятствий — {item['description']}"
                 )
-        else:
+        elif args.command == "showcase":
+            from .showcase import create_showcase
+
+            create_showcase(
+                args.directory,
+                args.output,
+                views=tuple(args.views),
+                frame_count=args.frames,
+                preferred_seed=args.seed,
+            )
+        elif args.command == "experiments":
             from .experiments import run_experiments
 
             options = PipelineOptions(

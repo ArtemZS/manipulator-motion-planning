@@ -14,6 +14,8 @@ from manipulator_planning.interactive import (
 )
 from manipulator_planning.robot import RobotModel
 from manipulator_planning.trajectory import fit_path
+from manipulator_planning.variants import select_variants
+from manipulator_planning.visualization import _capsule_faces
 
 
 def test_goal_stays_at_scene_target_and_frames_follow_original_spline() -> None:
@@ -42,6 +44,16 @@ def test_goal_stays_at_scene_target_and_frames_follow_original_spline() -> None:
     assert figure.layout.scene.aspectmode == "cube"
     assert figure.layout.uirevision
     assert len(figure.layout.updatemenus[1].buttons) == len(CAMERA_PRESETS)
+    assert figure.layout.title.y == 0.99
+    assert figure.layout.title.yanchor == "top"
+    play_menu, camera_menu = figure.layout.updatemenus
+    assert play_menu.x == camera_menu.x == 0
+    assert play_menu.y == 1.22
+    assert camera_menu.y == 1.10
+    assert camera_menu.type == "dropdown"
+    assert camera_menu.direction == "down"
+    assert play_menu.yanchor == camera_menu.yanchor == "top"
+    assert figure.layout.margin.t == 175
 
 
 def test_meshes_include_box_sphere_and_distinct_preset_cameras() -> None:
@@ -87,3 +99,40 @@ def test_html_embeds_plotly_and_animation_without_external_script(tmp_path: Path
     assert "Вращаемая 3D-сцена" in html
     with pytest.raises(ValueError, match="ракурс"):
         build_interactive_figure(robot, {}, trajectory, frame_count=2, view="unknown")
+
+
+def test_comparison_paths_do_not_replace_balanced_bspline_animation() -> None:
+    robot = RobotModel()
+    start = np.array([-0.3, -0.2, 0.2, 0.1, 0, 0])
+    goal = np.array([0.4, -0.4, 0.3, -0.1, 0.1, 0])
+    base = fit_path([start, goal])
+    trajectories = [base.with_duration(duration) for duration in (2.0, 3.0, 5.0, 4.0)]
+    records = select_variants(np.array([[10, 50, 2], [5, 200, 3], [20, 10, 5], [9, 40, 4]]), 3)
+    detour = np.array([-1.2, -0.8, 0.1, 0, 0.2, 0.2])
+    figure = build_interactive_figure(
+        robot,
+        {"goal": goal},
+        trajectories[3],
+        base,
+        frame_count=5,
+        trajectories=trajectories,
+        records=records,
+        rrt_path=[start, detour, goal],
+    )
+    for record in records:
+        assert any(trace.name.startswith(record["label"]) for trace in figure.data)
+    rrt_trace = next(trace for trace in figure.data if trace.name.startswith("RRT*"))
+    assert len(rrt_trace.x) > 50
+    assert rrt_trace.line.dash == "dot"
+    assert any(trace.name == "B-сплайн без NSGA-II" for trace in figure.data)
+    assert figure.layout.meta["animation_source"] == "balanced_bspline"
+    assert figure.layout.meta["animation_solution_index"] == 3
+    np.testing.assert_allclose(figure.layout.meta["sample_times"], np.linspace(0, 4, 5))
+    # Каждая объёмная поза берётся из выбранного B-сплайна, независимо от линии RRT*.
+    for frame, q in zip(figure.frames, trajectories[3].sample(5)["q"], strict=True):
+        positions = robot.joint_positions(q)
+        for index, mesh in enumerate(frame.data[:6]):
+            expected = np.concatenate(
+                _capsule_faces(positions[index], positions[index + 1], robot.link_radii[index])
+            )
+            np.testing.assert_allclose(np.column_stack((mesh.x, mesh.y, mesh.z)), expected)

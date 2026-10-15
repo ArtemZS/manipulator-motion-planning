@@ -20,6 +20,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from .variants import obstacle_label, rrt_tool_path, save_variants, select_variants
+
 if TYPE_CHECKING:
     from .trajectory import JointSplineTrajectory
 
@@ -150,7 +152,7 @@ def _draw_obstacles(ax: Any, scene: dict[str, Any]) -> None:
         ax.plot(*np.array([anchor, label_position]).T, color="#77323b", lw=0.6, alpha=0.7)
         ax.text(
             *label_position,
-            str(obstacle.get("label", obstacle.get("name", "Препятствие"))),
+            obstacle_label(obstacle, index),
             fontsize=8,
             color="#77323b",
             ha="left" if side > 0 else "right",
@@ -393,6 +395,75 @@ def _pareto_figure(objectives: np.ndarray, selected_index: int) -> Figure:
     return figure
 
 
+def _comparison_figure(
+    robot: Any,
+    scene: dict[str, Any],
+    trajectories: list[JointSplineTrajectory],
+    records: list[dict[str, Any]],
+    baseline: JointSplineTrajectory | None,
+    rrt_path: Any = None,
+    view: str = "isometric",
+) -> Figure:
+    """Общее сравнение настоящих путей инструмента четырёх представителей."""
+    figure = _figure((11, 9))
+    figure.get_layout_engine().set(rect=(0, 0.03, 1, 0.94))
+    ax = figure.add_subplot(projection="3d")
+    sampled = [
+        _positions(robot, trajectories[record["solution_index"]].sample(181)["q"])
+        for record in records
+    ]
+    selected = trajectories[
+        next(record["solution_index"] for record in records if record["key"] == "balanced")
+    ]
+    goal = _goal_position(robot, scene, selected)
+    all_points = [points.reshape(-1, 3) for points in sampled] + [goal[None, :]]
+    baseline_tool = None
+    if baseline is not None:
+        baseline_positions = _positions(robot, baseline.sample(181)["q"])
+        all_points.append(baseline_positions.reshape(-1, 3))
+        baseline_tool = baseline_positions[:, -1]
+    rrt_tool = None
+    if rrt_path is not None:
+        rrt_tool = rrt_tool_path(robot, rrt_path)
+        all_points.append(rrt_tool)
+    _configure_scene_axes(ax, np.concatenate(all_points), scene, view)
+    _draw_obstacles(ax, scene)
+    _draw_base(ax, robot)
+    if rrt_tool is not None:
+        ax.plot(
+            *rrt_tool.T,
+            color="#334155",
+            lw=1.6,
+            ls=":",
+            label="RRT*: линейные рёбра в углах суставов",
+            zorder=5,
+        )
+    if baseline_tool is not None:
+        ax.plot(*baseline_tool.T, color="#737373", lw=2, ls="--", label="B-сплайн без NSGA-II")
+    for record, positions in zip(records, sampled, strict=True):
+        ax.plot(
+            *positions[:, -1].T,
+            color=record["color"],
+            lw=2.4,
+            label=f"{record['label']} · № {record['solution_index']}",
+        )
+    _draw_target(ax, goal, sampled[0][0, -1])
+    ax.set_title("Четыре представителя Парето, исходный сплайн и RRT*\n" + _VIEW_ANGLES[view][2])
+    ax.legend(loc="upper left", fontsize=8)
+    duplicates = len({record["solution_index"] for record in records}) < 4
+    figure.text(
+        0.5,
+        0.012,
+        "Совпадающие номера означают один и тот же путь; линии могут накладываться."
+        if duplicates
+        else "Цвета соответствуют четырём строкам таблицы представителей.",
+        ha="center",
+        fontsize=9,
+        color="#526378",
+    )
+    return figure
+
+
 def _joint_figure(robot: Any, trajectory: JointSplineTrajectory) -> Figure:
     data = trajectory.sample(301)
     groups = [
@@ -499,9 +570,10 @@ def _save_animation(
     figure.text(
         0.5,
         0.015,
-        "Розовая звезда: фиксированная ЦЕЛЬ. Жёлтый маркер: текущий инструмент.",
+        "Кадры: q(t) B-сплайна → прямая кинематика. Прямые звенья — жёсткие тела.\n"
+        "Сбалансированное решение. Розовая звезда: ЦЕЛЬ; жёлтый: инструмент.",
         ha="center",
-        fontsize=9,
+        fontsize=8,
     )
 
     def update(frame: int) -> tuple[Any, ...]:
@@ -530,7 +602,10 @@ def _data_uri(path: Path) -> str:
 
 
 def _write_viewer(
-    paths: dict[str, Path], objectives: np.ndarray, selected_index: int, interactive_html: str = ""
+    paths: dict[str, Path],
+    objectives: np.ndarray,
+    selected_index: int,
+    interactive_html: str = "",
 ) -> None:
     values = objectives[selected_index]
     rows = "".join(
@@ -543,7 +618,8 @@ def _write_viewer(
         f'alt="{escape(caption)}"><figcaption>{escape(caption)}</figcaption></figure>'
         for key, caption in (
             ("animation", "Выбранное решение: движение всех шести звеньев"),
-            ("scene", "Трёхмерная сцена и путь инструмента по исходному сплайну"),
+            ("scene", "Сбалансированное решение: путь инструмента и позы манипулятора"),
+            ("comparison", "Четыре представителя Парето, исходный B-сплайн и суставный RRT*"),
             ("pareto", "Критерии проверенных допустимых решений"),
             ("joints", "Суставная траектория и обратная динамика"),
         )
@@ -597,6 +673,7 @@ def create_report(
     *,
     views: tuple[str, ...] = ("isometric",),
     frame_count: int = 55,
+    rrt_path: Any = None,
 ) -> dict[str, str]:
     """Сохранить PNG, GIF с выбранных ракурсов и автономную вращаемую 3D-сцену.
 
@@ -629,9 +706,12 @@ def create_report(
             ("animation", "animation.gif"),
             ("viewer", "view.html"),
             ("interactive", "interactive.html"),
+            ("comparison", "comparison.png"),
         )
     }
     selected = trajectories[selected_index]
+    records = select_variants(objectives, selected_index)
+    paths.update(save_variants(output_dir, records))
     # Локальный стиль сохраняет настройки интерактивного ноутбука пользователя.
     import matplotlib as mpl
 
@@ -640,6 +720,18 @@ def create_report(
             ("scene", _scene_figure(robot, scene, selected, baseline, views[0])),
             ("pareto", _pareto_figure(objectives, selected_index)),
             ("joints", _joint_figure(robot, selected)),
+            (
+                "comparison",
+                _comparison_figure(
+                    robot,
+                    scene,
+                    trajectories,
+                    records,
+                    baseline,
+                    rrt_path,
+                    views[0],
+                ),
+            ),
         ]
         for key, figure in figures:
             figure.savefig(paths[key], dpi=160, facecolor="white")
@@ -660,7 +752,17 @@ def create_report(
                 )
     from .interactive import interactive_fragment, write_interactive_viewer
 
-    interactive_html = interactive_fragment(robot, scene, selected, baseline, frame_count, views[0])
+    interactive_html = interactive_fragment(
+        robot,
+        scene,
+        selected,
+        baseline,
+        frame_count,
+        views[0],
+        trajectories=trajectories,
+        records=records,
+        rrt_path=rrt_path,
+    )
     write_interactive_viewer(paths["interactive"], interactive_html)
     _write_viewer(paths, objectives, selected_index, interactive_html)
     return {key: str(path) for key, path in paths.items()}

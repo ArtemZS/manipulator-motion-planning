@@ -12,12 +12,14 @@ import numpy as np
 import yaml
 
 from .collision import CollisionChecker
+from .io import write_json
 from .objectives import evaluate_objectives
 from .optimization import OptimizationResult, balanced_index, optimize_trajectory
 from .planning import RRTStar, simplify_path
 from .robot import RobotModel
 from .trajectory import JointSplineTrajectory, fit_path
 from .validation import certify_collision_free, validate_trajectory
+from .variants import select_variants
 
 
 @dataclass(frozen=True)
@@ -91,15 +93,6 @@ def load_scene(path: Path | str | None = None) -> dict:
     if not isinstance(scene.get("obstacles", []), list):
         raise ValueError("Поле obstacles должно быть списком")
     return scene
-
-
-def write_json(path: Path, value: dict) -> None:
-    """Записать UTF-8 JSON без нечисловых значений и неполного файла отчёта."""
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
-    )
-    temporary.replace(path)
 
 
 def _build_baseline(path, robot, checker, options):
@@ -311,6 +304,7 @@ def _run(scene, output_dir, options, started, progress):
             baseline=baseline,
             views=options.views,
             frame_count=options.frame_count,
+            rrt_path=planning.path,
         )
     report = {
         "schema_version": 1,
@@ -355,6 +349,7 @@ def _run(scene, output_dir, options, started, progress):
             "history": optimized.history,
         },
         "selected_index": selected,
+        "representative_variants": select_variants(optimized.objectives, selected),
         "solutions": [
             {"index": i, "objectives": f.tolist(), "validation": v.to_dict()}
             for i, (f, v) in enumerate(
@@ -411,6 +406,12 @@ def replay_results(
     if regenerate:
         from .visualization import create_report
 
+        archive_path = directory / "trajectories.npz"
+        rrt_path = None
+        if archive_path.exists():
+            with np.load(archive_path, allow_pickle=False) as archive:
+                if "rrt_path" in archive:
+                    rrt_path = archive["rrt_path"].copy()
         artifacts = create_report(
             directory,
             robot,
@@ -421,11 +422,13 @@ def replay_results(
             baseline=baseline,
             views=views or ("isometric",),
             frame_count=frame_count,
+            rrt_path=rrt_path,
         )
     result = {
         "status": "success",
         "solutions": reports,
         "objectives": objectives.tolist(),
+        "representative_variants": select_variants(objectives, selected),
         "artifacts": artifacts,
     }
     write_json(directory / "replay_report.json", result)
