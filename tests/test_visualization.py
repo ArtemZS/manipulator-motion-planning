@@ -7,7 +7,13 @@ import pytest
 
 from manipulator_planning.robot import RobotModel
 from manipulator_planning.trajectory import fit_path
-from manipulator_planning.visualization import _capsule_faces, _joint_figure, create_report
+from manipulator_planning.visualization import (
+    _VIEW_ANGLES,
+    _capsule_faces,
+    _joint_figure,
+    _scene_figure,
+    create_report,
+)
 
 
 def test_capsule_mesh_uses_link_endpoints_and_physical_radius() -> None:
@@ -62,3 +68,55 @@ def test_joint_figure_keeps_six_joint_curves_and_shows_actual_limit_usage() -> N
         assert usage_ax.get_ylim()[1] > 1.0
     finally:
         figure.clear()
+
+
+def test_scene_presets_and_fixed_goal_coordinates() -> None:
+    robot = RobotModel()
+    goal = np.array([0.6, -0.2, 0.15, 0.0, -0.1, 0.0])
+    trajectory = fit_path([np.zeros(6), goal])
+    for view, (elevation, azimuth, _) in _VIEW_ANGLES.items():
+        figure = _scene_figure(robot, {"goal": goal}, trajectory, None, view)
+        try:
+            ax = figure.axes[0]
+            assert ax.elev == elevation
+            assert ax.azim == azimuth
+            expected = robot.tool_position(goal)
+            label = next(text.get_text() for text in ax.texts if "ЦЕЛЬ:" in text.get_text())
+            assert all(f"{coordinate:.3f}" in label for coordinate in expected)
+            assert "ЦЕЛЬ" in ax.get_legend_handles_labels()[1]
+        finally:
+            figure.clear()
+
+
+def test_report_generates_requested_gif_views_and_self_contained_html(tmp_path: Path) -> None:
+    from PIL import Image
+
+    robot = RobotModel()
+    goal = np.array([0.6, -0.2, 0.15, 0.0, -0.1, 0.0])
+    trajectory = fit_path([np.zeros(6), goal])
+    artifacts = create_report(
+        tmp_path,
+        robot,
+        {"goal": goal},
+        [trajectory],
+        np.array([[10, 20, 4]]),
+        0,
+        views=("front", "top"),
+        frame_count=3,
+    )
+    assert (
+        Path(artifacts["animation"]).read_bytes() == Path(artifacts["animation_front"]).read_bytes()
+    )
+    assert (
+        Path(artifacts["animation_top"]).read_bytes() != Path(artifacts["animation"]).read_bytes()
+    )
+    for key in ("animation_front", "animation_top"):
+        with Image.open(artifacts[key]) as gif:
+            assert gif.n_frames == 3
+    assert Path(artifacts["scene_top"]).exists()
+    html = Path(artifacts["viewer"]).read_text(encoding="utf-8")
+    assert "Plotly.addFrames" in html
+    assert "data:image/gif;base64," in html
+    assert Path(artifacts["interactive"]).exists()
+    with pytest.raises(ValueError, match="views"):
+        create_report(tmp_path, robot, {}, [trajectory], np.zeros((1, 3)), 0, views=("bad",))

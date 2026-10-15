@@ -59,6 +59,8 @@ class RRTStar:
         step_size: float = 0.22,
         goal_bias: float = 0.15,
         neighbor_radius: float = 1.0,
+        local_sample_rate: float = 0.0,
+        local_sample_scale: float = 0.12,
     ) -> None:
         self.lower = np.asarray(robot.joint_lower, dtype=float).copy()
         self.upper = np.asarray(robot.joint_upper, dtype=float).copy()
@@ -78,11 +80,17 @@ class RRTStar:
             raise ValueError("neighbor_radius must be positive and finite.")
         if not 0 <= goal_bias <= 1:
             raise ValueError("goal_bias must be between zero and one.")
+        if not 0 <= local_sample_rate <= 1 - goal_bias:
+            raise ValueError("Вероятности цели и локальной выборки должны иметь сумму <= 1")
+        if not np.isfinite(local_sample_scale) or local_sample_scale <= 0:
+            raise ValueError("Масштаб локальной выборки должен быть конечным и положительным")
         self.checker = checker
         self.seed = seed
         self.step_size = float(step_size)
         self.goal_bias = float(goal_bias)
         self.neighbor_radius = float(neighbor_radius)
+        self.local_sample_rate = float(local_sample_rate)
+        self.local_sample_scale = float(local_sample_scale)
         self.nodes: list[_Node] = []
 
     def distance(self, a: ArrayLike, b: ArrayLike) -> float:
@@ -176,9 +184,19 @@ class RRTStar:
         dimensions = self.lower.size
 
         for iteration in range(1, max_iterations + 1):
-            sample = (
-                goal_q if rng.random() < self.goal_bias else rng.uniform(self.lower, self.upper)
-            )
+            choice = rng.random()
+            if choice < self.goal_bias:
+                sample = goal_q
+            elif choice < self.goal_bias + self.local_sample_rate:
+                # Смесь с равномерной выборкой сохраняет исследование всего пространства.
+                center = start_q + rng.random() * (goal_q - start_q)
+                sample = np.clip(
+                    rng.normal(center, self.local_sample_scale * self.ranges),
+                    self.lower,
+                    self.upper,
+                )
+            else:
+                sample = rng.uniform(self.lower, self.upper)
             positions = np.asarray([node.q for node in self.nodes])
             distances = np.linalg.norm((positions - sample) / self.ranges, axis=1)
             nearest = int(np.argmin(distances))

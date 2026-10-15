@@ -19,14 +19,23 @@ check:
 format:
     uv run ruff format .
 
-demo:
-    uv run manipulator-planning demo --output results/demo
+demo scene="simple" output="results/demo":
+    uv run manipulator-planning demo --scene "{{scene}}" --output "{{output}}"
 
 quick:
     uv run manipulator-planning demo --quick --output results/quick
 
 replay directory="results/demo":
     uv run manipulator-planning replay "{{directory}}"
+
+scenes:
+    uv run manipulator-planning scenes
+
+views directory="results/demo":
+    uv run manipulator-planning replay "{{directory}}" --views isometric front side top
+
+experiments:
+    uv run manipulator-planning experiments --workers 2
 
 build:
     uv build

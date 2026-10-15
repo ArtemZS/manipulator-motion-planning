@@ -8,6 +8,7 @@ B-сплайну. Повторная интерполяция и сглажив�
 from __future__ import annotations
 
 import base64
+import shutil
 from html import escape
 from itertools import pairwise
 from pathlib import Path
@@ -25,6 +26,12 @@ if TYPE_CHECKING:
 
 _LINK_COLORS = ["#246a9a", "#3d8dc0", "#50a3a4", "#e1a73b", "#d97935", "#b85450"]
 _STYLE = {"font.size": 10, "axes.labelsize": 10, "axes.titlesize": 12}
+_VIEW_ANGLES = {
+    "isometric": (24, -55, "Общий вид"),
+    "front": (12, -90, "Спереди"),
+    "side": (12, 0, "Сбоку"),
+    "top": (90, -90, "Сверху"),
+}
 
 
 def _figure(figsize: tuple[float, float]) -> Figure:
@@ -132,7 +139,7 @@ def _draw_obstacles(ax: Any, scene: dict[str, Any]) -> None:
                 shade=True,
             )
         else:
-            raise ValueError(f"Unsupported obstacle for visualization: {kind!r}")
+            raise ValueError(f"Неизвестная форма препятствия: {kind!r}")
         label_height = (
             float(obstacle["radius"]) if kind == "sphere" else float(obstacle["half_size"][2])
         )
@@ -143,7 +150,7 @@ def _draw_obstacles(ax: Any, scene: dict[str, Any]) -> None:
         ax.plot(*np.array([anchor, label_position]).T, color="#77323b", lw=0.6, alpha=0.7)
         ax.text(
             *label_position,
-            str(obstacle.get("name", "obstacle")),
+            str(obstacle.get("label", obstacle.get("name", "Препятствие"))),
             fontsize=8,
             color="#77323b",
             ha="left" if side > 0 else "right",
@@ -172,7 +179,8 @@ def _positions(robot: Any, q: np.ndarray) -> np.ndarray:
     return np.array([robot.joint_positions(config) for config in q], dtype=float)
 
 
-def _configure_scene_axes(ax: Any, positions: np.ndarray, scene: dict[str, Any]) -> None:
+def _scene_bounds(positions: np.ndarray, scene: dict[str, Any]) -> tuple[np.ndarray, float]:
+    """Общая кубическая область обзора включает движение, пол и препятствия."""
     points = [positions.reshape(-1, 3), np.array([[0.0, 0.0, 0.0]])]
     for obstacle in scene.get("obstacles", []):
         position = np.asarray(obstacle["position"], dtype=float)
@@ -182,16 +190,24 @@ def _configure_scene_axes(ax: Any, positions: np.ndarray, scene: dict[str, Any])
     minimum, maximum = points.min(axis=0), points.max(axis=0)
     center = (minimum + maximum) / 2.0
     radius = max(float(np.max(maximum - minimum)) * 0.57, 0.3)
+    return center, radius
+
+
+def _configure_scene_axes(
+    ax: Any, positions: np.ndarray, scene: dict[str, Any], view: str = "isometric"
+) -> None:
+    center, radius = _scene_bounds(positions, scene)
     ax.set(
         xlim=(center[0] - radius, center[0] + radius),
         ylim=(center[1] - radius, center[1] + radius),
         zlim=(center[2] - radius, center[2] + radius),
-        xlabel="x [m]",
-        ylabel="y [m]",
-        zlabel="z [m]",
+        xlabel="x [м]",
+        ylabel="y [м]",
+        zlabel="z [м]",
     )
     ax.set_box_aspect((1, 1, 1))
-    ax.view_init(elev=24, azim=-55)
+    elevation, azimuth, _ = _VIEW_ANGLES[view]
+    ax.view_init(elev=elevation, azim=azimuth)
     ax.tick_params(labelsize=8)
     floor = np.array(
         [
@@ -204,18 +220,80 @@ def _configure_scene_axes(ax: Any, positions: np.ndarray, scene: dict[str, Any])
     ax.add_collection3d(Poly3DCollection([floor], facecolors="#dce3e9", alpha=0.2))
 
 
+def _goal_position(
+    robot: Any, scene: dict[str, Any], trajectory: JointSplineTrajectory
+) -> np.ndarray:
+    """Фиксированная цель вычисляется из задания, а не из текущего кадра."""
+    return np.asarray(robot.tool_position(scene.get("goal", trajectory.evaluate(1.0))))
+
+
+def _draw_target(ax: Any, goal: np.ndarray, start: np.ndarray) -> None:
+    """Яркие неподвижные ориентиры и подпись поверх проекции сцены."""
+    ax.plot(
+        *start[:, None],
+        markersize=8,
+        marker="o",
+        color="#16834b",
+        markeredgecolor="white",
+        markeredgewidth=0.8,
+        linestyle="none",
+        label="СТАРТ",
+        zorder=90,
+    )
+    ax.plot(
+        *goal[:, None],
+        markersize=16,
+        marker="*",
+        color="#ed168f",
+        markeredgecolor="#621044",
+        markeredgewidth=0.9,
+        linestyle="none",
+        label="ЦЕЛЬ",
+        zorder=100,
+    )
+    ax.plot(
+        [goal[0], goal[0]],
+        [goal[1], goal[1]],
+        [0, goal[2]],
+        color="#d20d7f",
+        lw=1.1,
+        ls=":",
+        alpha=0.8,
+    )
+    ax.text(
+        *(goal + [0, 0, 0.075]),
+        "ЦЕЛЬ",
+        color="#b5066d",
+        fontsize=11,
+        fontweight="bold",
+        bbox={"facecolor": "white", "edgecolor": "#ed168f", "alpha": 0.9},
+    )
+    ax.text2D(
+        0.02,
+        0.02,
+        f"★ ЦЕЛЬ: x = {goal[0]:.3f}; y = {goal[1]:.3f}; z = {goal[2]:.3f} м",
+        transform=ax.transAxes,
+        fontsize=9,
+        color="#b5066d",
+        fontweight="bold",
+        bbox={"facecolor": "#fff0f8", "edgecolor": "#ed168f", "alpha": 0.95, "pad": 4},
+    )
+
+
 def _scene_figure(
     robot: Any,
     scene: dict[str, Any],
     trajectory: JointSplineTrajectory,
     baseline: JointSplineTrajectory | None,
+    view: str = "isometric",
 ) -> Figure:
     figure = _figure((10, 8))
     figure.get_layout_engine().set(rect=(0, 0.05, 1, 0.95))
     ax = figure.add_subplot(projection="3d")
     data = trajectory.sample(241)
     positions = _positions(robot, data["q"])
-    _configure_scene_axes(ax, positions, scene)
+    goal = _goal_position(robot, scene, trajectory)
+    _configure_scene_axes(ax, np.concatenate((positions.reshape(-1, 3), [goal])), scene, view)
     _draw_obstacles(ax, scene)
     _draw_base(ax, robot)
     tool = positions[:, -1]
@@ -223,13 +301,24 @@ def _scene_figure(
     if baseline is not None:
         baseline_tool = _positions(robot, baseline.sample(181)["q"])[:, -1]
         ax.plot(*baseline_tool.T, color="#a57724", lw=1.5, ls="--", label="Исходный сплайн")
-    for index, label, color in ((0, "Старт", "#237a44"), (-1, "Цель", "#93444b")):
-        _draw_robot(ax, robot, data["q"][index], alpha=0.20, ghost=True)
-        ax.scatter(*tool[index], s=40, color=color, label=label, depthshade=False)
+    _draw_robot(ax, robot, data["q"][0], alpha=0.20, ghost=True)
+    _draw_robot(ax, robot, scene.get("goal", data["q"][-1]), alpha=0.20, ghost=True)
+    _draw_target(ax, goal, tool[0])
     _draw_robot(ax, robot, data["q"][len(data["q"]) // 2], alpha=0.95)
+    ax.plot(
+        *tool[len(tool) // 2, :, None],
+        markersize=8,
+        marker="o",
+        color="#ffd23f",
+        markeredgecolor="#27374c",
+        markeredgewidth=1.1,
+        linestyle="none",
+        label="Инструмент в показанной позе",
+        zorder=95,
+    )
     ax.set_title(
         "Учебный манипулятор 6R: выбранная траектория\n"
-        f"T = {trajectory.duration:.3f} s; препятствия в натуральном масштабе"
+        f"{_VIEW_ANGLES[view][2]}; T = {trajectory.duration:.3f} с"
     )
     ax.legend(loc="upper left", fontsize=9)
     figure.text(
@@ -377,24 +466,40 @@ def _save_animation(
     robot: Any,
     scene: dict[str, Any],
     trajectory: JointSplineTrajectory,
+    view: str = "isometric",
+    frame_count: int = 55,
 ) -> None:
     figure = _figure((7.2, 6.2))
     figure.get_layout_engine().set(rect=(0, 0.055, 1, 0.945))
     ax = figure.add_subplot(projection="3d")
-    data = trajectory.sample(55)
+    data = trajectory.sample(frame_count)
     positions = _positions(robot, data["q"])
-    _configure_scene_axes(ax, positions, scene)
+    goal = _goal_position(robot, scene, trajectory)
+    _configure_scene_axes(ax, np.concatenate((positions.reshape(-1, 3), [goal])), scene, view)
     _draw_obstacles(ax, scene)
     _draw_base(ax, robot)
+    _draw_target(ax, goal, positions[0, -1])
     ax.plot(*positions[:, -1].T, color="#7f9eb7", lw=1, ls="--", alpha=0.7)
     artists = _draw_robot(ax, robot, data["q"][0])
     radii = _link_radii(robot, len(artists))
     (trail,) = ax.plot([], [], [], color="#165f9c", lw=2)
+    (tool_marker,) = ax.plot(
+        [],
+        [],
+        [],
+        marker="o",
+        markersize=8,
+        color="#ffd23f",
+        markeredgecolor="#27374c",
+        linestyle="none",
+        label="Текущий инструмент",
+        zorder=95,
+    )
     title = ax.set_title("")
     figure.text(
         0.5,
         0.015,
-        "Показ за 5,5 s; физическое время движения указано в заголовке.",
+        "Розовая звезда: фиксированная ЦЕЛЬ. Жёлтый маркер: текущий инструмент.",
         ha="center",
         fontsize=9,
     )
@@ -404,13 +509,18 @@ def _save_animation(
             artist.set_verts(_capsule_faces(positions[frame, i], positions[frame, i + 1], radii[i]))
         tool = positions[: frame + 1, -1]
         trail.set_data_3d(*tool.T)
+        tool_marker.set_data_3d(*tool[-1:, :].T)
         title.set_text(
-            f"Учебный манипулятор 6R | t = {data['time'][frame]:.2f} / {trajectory.duration:.2f} s"
+            f"6R | {_VIEW_ANGLES[view][2]} | "
+            f"t = {data['time'][frame]:.2f} / {trajectory.duration:.2f} с"
         )
-        return (*artists, trail, title)
+        return (*artists, trail, tool_marker, title)
 
-    animation = FuncAnimation(figure, update, frames=len(positions), interval=100, blit=False)
-    animation.save(path, writer=PillowWriter(fps=10), dpi=100)
+    fps = max(1, round(frame_count / 5.5))
+    animation = FuncAnimation(
+        figure, update, frames=len(positions), interval=1000 / fps, blit=False
+    )
+    animation.save(path, writer=PillowWriter(fps=fps), dpi=100)
     figure.clear()
 
 
@@ -419,7 +529,9 @@ def _data_uri(path: Path) -> str:
     return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
 
 
-def _write_viewer(paths: dict[str, Path], objectives: np.ndarray, selected_index: int) -> None:
+def _write_viewer(
+    paths: dict[str, Path], objectives: np.ndarray, selected_index: int, interactive_html: str = ""
+) -> None:
     values = objectives[selected_index]
     rows = "".join(
         f"<tr{' class=selected' if i == selected_index else ''}><td>{i}</td>"
@@ -435,6 +547,14 @@ def _write_viewer(paths: dict[str, Path], objectives: np.ndarray, selected_index
             ("pareto", "Критерии проверенных допустимых решений"),
             ("joints", "Суставная траектория и обратная динамика"),
         )
+    )
+    named_animations = [(key, path) for key, path in paths.items() if key.startswith("animation_")]
+    # Основной ракурс уже показан выше; дополнительные GIF включаются по одному разу.
+    extra_views = "".join(
+        f'<figure><img src="{_data_uri(path)}" '
+        f'alt="{_VIEW_ANGLES[key.removeprefix("animation_")][2]}">'
+        f"<figcaption>{_VIEW_ANGLES[key.removeprefix('animation_')][2]}</figcaption></figure>"
+        for key, path in named_animations[1:]
     )
     paths["viewer"].write_text(
         '<!doctype html><html lang="ru"><meta charset="utf-8">'
@@ -453,7 +573,9 @@ def _write_viewer(paths: dict[str, Path], objectives: np.ndarray, selected_index
         f"<p>Выбранное решение: <strong>{selected_index}</strong>; "
         f"J<sub>τ</sub> = {values[0]:.6g} (N m)² s; "
         f"J<sub>jerk</sub> = {values[1]:.6g} rad²/s⁵; T = {values[2]:.6g} s.</p>"
+        + interactive_html
         + images
+        + extra_views
         + '<h2>Сохранённые допустимые решения</h2><div class="table"><table>'
         "<thead><tr><th>Номер</th><th>Jτ [(N m)² s]</th><th>Jjerk [rad²/s⁵]</th><th>T [s]</th>"
         "</tr></thead><tbody>" + rows + "</tbody></table></div>"
@@ -472,8 +594,11 @@ def create_report(
     objectives: np.ndarray,
     selected_index: int,
     baseline: JointSplineTrajectory | None = None,
+    *,
+    views: tuple[str, ...] = ("isometric",),
+    frame_count: int = 55,
 ) -> dict[str, str]:
-    """Сохранить PNG-графики, GIF-анимацию и автономный HTML-отчёт.
+    """Сохранить PNG, GIF с выбранных ракурсов и автономную вращаемую 3D-сцену.
 
     Строки ``objectives`` соответствуют переданным проверенным траекториям;
     порядок критериев: ``[integral(torque**2), integral(jerk**2), T]``.
@@ -485,6 +610,14 @@ def create_report(
         raise ValueError("objectives must be a finite (number of trajectories, 3) array")
     if not trajectories or not 0 <= selected_index < len(trajectories):
         raise ValueError("selected_index must identify an existing trajectory")
+    if (
+        not views
+        or any(view not in _VIEW_ANGLES for view in views)
+        or len(set(views)) != len(views)
+    ):
+        raise ValueError("views: нужны неповторяющиеся isometric, front, side или top")
+    if not isinstance(frame_count, int) or frame_count < 2:
+        raise ValueError("frame_count должен быть целым числом не меньше двух")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = {
@@ -495,6 +628,7 @@ def create_report(
             ("joints", "joints.png"),
             ("animation", "animation.gif"),
             ("viewer", "view.html"),
+            ("interactive", "interactive.html"),
         )
     }
     selected = trajectories[selected_index]
@@ -503,13 +637,30 @@ def create_report(
 
     with mpl.rc_context(_STYLE):
         figures = [
-            ("scene", _scene_figure(robot, scene, selected, baseline)),
+            ("scene", _scene_figure(robot, scene, selected, baseline, views[0])),
             ("pareto", _pareto_figure(objectives, selected_index)),
             ("joints", _joint_figure(robot, selected)),
         ]
         for key, figure in figures:
             figure.savefig(paths[key], dpi=160, facecolor="white")
             figure.clear()
-        _save_animation(paths["animation"], robot, scene, selected)
-    _write_viewer(paths, objectives, selected_index)
+        _save_animation(paths["animation"], robot, scene, selected, views[0], frame_count)
+        for view in views:
+            paths[f"animation_{view}"] = output_dir / f"animation_{view}.gif"
+            paths[f"scene_{view}"] = output_dir / f"scene_{view}.png"
+            if view == views[0]:
+                shutil.copyfile(paths["animation"], paths[f"animation_{view}"])
+                shutil.copyfile(paths["scene"], paths[f"scene_{view}"])
+            else:
+                figure = _scene_figure(robot, scene, selected, baseline, view)
+                figure.savefig(paths[f"scene_{view}"], dpi=160, facecolor="white")
+                figure.clear()
+                _save_animation(
+                    paths[f"animation_{view}"], robot, scene, selected, view, frame_count
+                )
+    from .interactive import interactive_fragment, write_interactive_viewer
+
+    interactive_html = interactive_fragment(robot, scene, selected, baseline, frame_count, views[0])
+    write_interactive_viewer(paths["interactive"], interactive_html)
+    _write_viewer(paths, objectives, selected_index, interactive_html)
     return {key: str(path) for key, path in paths.items()}

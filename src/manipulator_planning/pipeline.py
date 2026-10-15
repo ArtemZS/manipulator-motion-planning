@@ -13,7 +13,7 @@ import yaml
 
 from .collision import CollisionChecker
 from .objectives import evaluate_objectives
-from .optimization import balanced_index, optimize_trajectory
+from .optimization import OptimizationResult, balanced_index, optimize_trajectory
 from .planning import RRTStar, simplify_path
 from .robot import RobotModel
 from .trajectory import JointSplineTrajectory, fit_path
@@ -31,6 +31,13 @@ class PipelineOptions:
     minimum_duration: float = 1.0
     maximum_duration: float = 12.0
     plots: bool = True
+    method: str = "full"
+    rrt_step_size: float = 0.10
+    rrt_goal_bias: float = 0.25
+    rrt_local_sample_rate: float = 0.45
+    rrt_local_sample_scale: float = 0.12
+    views: tuple[str, ...] = ("isometric",)
+    frame_count: int = 55
 
     def validate(self) -> None:
         if self.rrt_iterations < 1:
@@ -43,11 +50,37 @@ class PipelineOptions:
             raise ValueError("Границы длительности должны быть положительными и возрастающими")
         if not np.isfinite(self.shape_radius) or self.shape_radius <= 0:
             raise ValueError("Радиус изменения коэффициентов должен быть положительным")
+        if not np.isfinite([self.minimum_duration, self.maximum_duration]).all():
+            raise ValueError("Границы длительности должны быть конечными")
+        if self.method not in ("full", "baseline"):
+            raise ValueError("Метод должен быть full или baseline")
+        if not np.isfinite(self.rrt_step_size) or self.rrt_step_size <= 0:
+            raise ValueError("Шаг RRT* должен быть конечным и положительным")
+        if not 0 <= self.rrt_goal_bias <= 1 or not 0 <= self.rrt_local_sample_rate < 1:
+            raise ValueError("Вероятности выборки RRT* должны лежать в [0, 1]")
+        if self.rrt_goal_bias + self.rrt_local_sample_rate >= 1:
+            raise ValueError("Необходимо сохранить положительную долю равномерной выборки")
+        if not np.isfinite(self.rrt_local_sample_scale) or self.rrt_local_sample_scale <= 0:
+            raise ValueError("Масштаб локальной выборки должен быть положительным")
+        if not self.views or any(
+            v not in ("isometric", "front", "side", "top") for v in self.views
+        ):
+            raise ValueError("Ракурсы: isometric, front, side, top")
+        if not isinstance(self.frame_count, int) or not 2 <= self.frame_count <= 240:
+            raise ValueError("Число кадров должно быть целым от 2 до 240")
 
 
-def load_scene(path: Path | None = None) -> dict:
+def load_scene(path: Path | str | None = None) -> dict:
     """Прочитать пользовательскую сцену или поставляемый пример из пакета."""
-    source = path or files("manipulator_planning").joinpath("assets/simple.yaml")
+    if isinstance(path, str) and not Path(path).is_file() and not Path(path).suffix:
+        from .scenes import load_named_scene
+
+        return load_named_scene(path)
+    source = (
+        Path(path)
+        if path is not None
+        else files("manipulator_planning").joinpath("assets/simple.yaml")
+    )
     scene = yaml.safe_load(source.read_text(encoding="utf-8"))
     if not isinstance(scene, dict):
         raise ValueError("Описание сцены должно быть словарём YAML")
@@ -120,38 +153,87 @@ def run_pipeline(
     options.validate()
     output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_json(output_dir / "report.json", {"status": "running", "options": asdict(options)})
+    progress = {
+        "schema_version": 1,
+        "status": "running",
+        "scene": scene.get("name", "custom"),
+        "options": asdict(options),
+        "seeds": {"rrt": options.seed, "nsga2": options.seed + 1},
+        "failure_stage": "model",
+        "timings_seconds": {},
+    }
+    write_json(output_dir / "report.json", progress)
+    (output_dir / "config.yaml").write_text(
+        yaml.safe_dump(scene, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
     started = perf_counter()
     try:
-        return _run(scene, output_dir, options, started)
+        return _run(scene, output_dir, options, started, progress)
     except Exception as exc:
-        write_json(
-            output_dir / "report.json",
-            {"status": "failed", "reason": str(exc), "options": asdict(options)},
-        )
+        progress.update(status="failed", reason=str(exc))
+        elapsed = perf_counter() - started
+        timing_key = {
+            "planning": "planning",
+            "smoothing": "smoothing",
+            "optimization": "optimization_and_validation",
+        }.get(progress["failure_stage"])
+        if timing_key is not None and timing_key not in progress["timings_seconds"]:
+            progress["timings_seconds"][timing_key] = max(
+                0.0, elapsed - sum(progress["timings_seconds"].values())
+            )
+        progress["timings_seconds"]["total"] = elapsed
+        write_json(output_dir / "report.json", progress)
         raise
 
 
-def _run(scene, output_dir, options, started):
+def _run(scene, output_dir, options, started, progress):
     robot = RobotModel(scene)
     checker = CollisionChecker(robot, float(scene.get("safety_margin", 0.015)))
     start, goal = np.asarray(scene["start"]), np.asarray(scene["goal"])
     print("1/4: RRT* в пространстве шести суставов", flush=True)
     planning_started = perf_counter()
+    progress["failure_stage"] = "planning"
     direct_valid = checker.is_motion_valid(start, goal)
-    planner = RRTStar(robot, checker, seed=options.seed, step_size=0.10, goal_bias=0.45)
+    planner = RRTStar(
+        robot,
+        checker,
+        seed=options.seed,
+        step_size=options.rrt_step_size,
+        goal_bias=options.rrt_goal_bias,
+        local_sample_rate=options.rrt_local_sample_rate,
+        local_sample_scale=options.rrt_local_sample_scale,
+    )
     planning = planner.plan(start, goal, max_iterations=options.rrt_iterations)
     planning_time = perf_counter() - planning_started
+    progress["timings_seconds"]["planning"] = planning_time
+    progress["planning"] = {
+        "direct_motion_valid": bool(direct_valid),
+        "iterations": planning.iterations,
+        "nodes": planning.node_count,
+        "path_points": len(planning.path) if planning.path is not None else 0,
+        "cost_history": planning.cost_history,
+        "reason": planning.reason,
+    }
     if not planning.success:
         raise RuntimeError(f"RRT*: {planning.reason}")
     print(f"RRT*: {len(planning.path)} точек, узлов {planning.node_count}", flush=True)
     print("2/4: суставный B-сплайн и проверка ограничений", flush=True)
     smoothing_started = perf_counter()
+    progress["failure_stage"] = "smoothing"
+    write_json(output_dir / "report.json", progress)
     baseline, baseline_validation, fit_attempts = _build_baseline(
         planning.path, robot, checker, options
     )
     baseline_objectives, _ = evaluate_objectives(baseline, robot, quadrature_order=10)
     smoothing_time = perf_counter() - smoothing_started
+    progress["timings_seconds"]["smoothing"] = smoothing_time
+    progress["baseline"] = {
+        "objectives": baseline_objectives.tolist(),
+        "control_points": len(baseline.control_points),
+        "validation": baseline_validation.to_dict(),
+        "fit_attempts": fit_attempts,
+    }
+    write_json(output_dir / "baseline.json", baseline.to_dict())
     print(
         f"B-сплайн: K={len(baseline.control_points)}, T={baseline.duration:.3f} с, "
         f"зазор >= {baseline_validation.collision_clearance_lower_bound:.4f} м",
@@ -159,17 +241,28 @@ def _run(scene, output_dir, options, started):
     )
     print("3/4: NSGA-II по коэффициентам и длительности", flush=True)
     optimization_started = perf_counter()
-    optimized = optimize_trajectory(
-        baseline,
-        robot,
-        checker,
-        seed=options.seed + 1,
-        population=options.population,
-        generations=options.generations,
-        duration_bounds=(options.minimum_duration, options.maximum_duration),
-        shape_radius=options.shape_radius,
-    )
-    optimization_time = perf_counter() - optimization_started
+    progress["failure_stage"] = "optimization"
+    write_json(output_dir / "report.json", progress)
+    if options.method == "full":
+        optimized = optimize_trajectory(
+            baseline,
+            robot,
+            checker,
+            seed=options.seed + 1,
+            population=options.population,
+            generations=options.generations,
+            duration_bounds=(options.minimum_duration, options.maximum_duration),
+            shape_radius=options.shape_radius,
+        )
+        optimization_time = perf_counter() - optimization_started
+    else:
+        print("NSGA-II пропущен: сохраняется исходная допустимая траектория", flush=True)
+        optimized = OptimizationResult(
+            [baseline], np.array([baseline_objectives]), [baseline_validation], [], 0, 1, 0
+        )
+        optimization_time = 0.0
+    progress["timings_seconds"]["optimization_and_validation"] = optimization_time
+    progress["failure_stage"] = "artifacts"
     selected = balanced_index(optimized.objectives)
     print(f"4/4: сохранение {len(optimized.trajectories)} допустимых решений", flush=True)
     (output_dir / "config.yaml").write_text(
@@ -216,10 +309,14 @@ def _run(scene, output_dir, options, started):
             optimized.objectives,
             selected,
             baseline=baseline,
+            views=options.views,
+            frame_count=options.frame_count,
         )
     report = {
         "schema_version": 1,
         "status": "success",
+        "method": options.method,
+        "failure_stage": None,
         "scene": scene.get("name", "custom"),
         "options": asdict(options),
         "environment": {
@@ -286,7 +383,13 @@ def _run(scene, output_dir, options, started):
     return report
 
 
-def replay_results(directory: Path, *, regenerate: bool = True) -> dict:
+def replay_results(
+    directory: Path,
+    *,
+    regenerate: bool = True,
+    views: tuple[str, ...] | None = None,
+    frame_count: int = 55,
+) -> dict:
     """Восстановить сохранённые сплайны и повторить проверку без оптимизации."""
     directory = directory.resolve()
     scene = load_scene(directory / "config.yaml")
@@ -309,7 +412,15 @@ def replay_results(directory: Path, *, regenerate: bool = True) -> dict:
         from .visualization import create_report
 
         artifacts = create_report(
-            directory, robot, scene, trajectories, objectives, selected, baseline=baseline
+            directory,
+            robot,
+            scene,
+            trajectories,
+            objectives,
+            selected,
+            baseline=baseline,
+            views=views or ("isometric",),
+            frame_count=frame_count,
         )
     result = {
         "status": "success",
