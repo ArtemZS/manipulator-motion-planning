@@ -18,6 +18,9 @@ import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
+from matplotlib.text import Text
+from matplotlib.transforms import Bbox
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from .variants import obstacle_label, rrt_tool_path, save_variants, select_variants
@@ -334,28 +337,71 @@ def _scene_figure(
     return figure
 
 
+def _place_pareto_labels(ax: Any, annotations: list, points: np.ndarray, renderer: Any) -> None:
+    """Разместить выноски внутри панели, сохранив видимость четырёх маркеров."""
+    markers = [Bbox.from_bounds(x - 12, y - 12, 24, 24) for x, y in points]
+    occupied = []
+    for annotation, anchor in zip(annotations, points, strict=True):
+        horizontal = 1 if anchor[0] < ax.bbox.x0 + ax.bbox.width / 2 else -1
+        vertical = 1 if anchor[1] < ax.bbox.y0 + ax.bbox.height / 2 else -1
+        best = None
+        for sign_x in (horizontal, -horizontal):
+            annotation.set_ha("left" if sign_x > 0 else "right")
+            for sign_y in (vertical, -vertical):
+                for distance in (18, 42, 66, 90):
+                    position = (sign_x * 15, sign_y * distance)
+                    annotation.set_position(position)
+                    annotation.update_positions(renderer)
+                    bounds = Text.get_window_extent(annotation, renderer).padded(3)
+                    outside = not (
+                        ax.bbox.contains(bounds.x0, bounds.y0)
+                        and ax.bbox.contains(bounds.x1, bounds.y1)
+                    )
+                    collisions = sum(bounds.overlaps(marker) for marker in markers)
+                    collisions += sum(bounds.overlaps(other) for other in occupied)
+                    score = 1000 * outside + 100 * collisions + distance
+                    if best is None or score < best[0]:
+                        best = (score, position, annotation.get_ha(), bounds)
+        _, position, alignment, bounds = best
+        annotation.set_position(position)
+        annotation.set_ha(alignment)
+        occupied.append(bounds)
+
+
 def _pareto_figure(objectives: np.ndarray, selected_index: int) -> Figure:
-    figure = _figure((12, 9))
-    figure.get_layout_engine().set(wspace=0.10, hspace=0.07)
-    colors = objectives[:, 2]
-    normalizer = None
+    """Выделить четыре настоящих представителя цветами соответствующих путей."""
+    objectives = np.asarray(objectives, dtype=float)
+    records = select_variants(objectives, selected_index)
+    names = {
+        "min_time": "Минимум времени",
+        "min_effort": "Минимум усилий",
+        "min_jerk": "Минимум рывка",
+        "balanced": "Сбалансированный",
+    }
+    # Вложенные контуры показывают несколько критериев в одной точке без её сдвига.
+    sizes = (320, 220, 140, 90)
+    figure = _figure((14, 10))
+    figure.get_layout_engine().set(rect=(0, 0.045, 1, 0.86), wspace=0.10, hspace=0.12)
     labels = (
         r"$J_\tau$ [(N m)$^2$ s]",
         r"$J_{\mathrm{jerk}}$ [rad$^2$/s$^5$]",
         "T [s]",
     )
-    ax = figure.add_subplot(2, 2, 1, projection="3d")
-    points = ax.scatter(*objectives.T, c=colors, cmap="viridis", s=28, alpha=0.8)
-    normalizer = points.norm
-    ax.scatter(
-        *objectives[selected_index],
-        marker="*",
-        color="#dc5b36",
-        s=180,
-        edgecolors="#633021",
-        label="Выбранное решение",
-        depthshade=False,
-    )
+    ax = figure.add_subplot(2, 2, 1, projection="3d", computed_zorder=False)
+    ax.scatter(*objectives.T, color="#94a3b8", s=22, alpha=0.65, depthshade=False)
+    for record, size in zip(records, sizes, strict=True):
+        balanced = record["key"] == "balanced"
+        ax.scatter(
+            *objectives[record["solution_index"]],
+            marker="*" if balanced else "o",
+            facecolors=record["color"] if balanced else "none",
+            edgecolors=record["color"],
+            linewidths=2.0,
+            s=size,
+            label=names[record["key"]],
+            depthshade=False,
+            zorder=5,
+        )
     ax.set(
         xlabel=r"$J_\tau$",
         ylabel=r"$J_{\mathrm{jerk}}$",
@@ -364,34 +410,90 @@ def _pareto_figure(objectives: np.ndarray, selected_index: int) -> Figure:
     )
     ax.tick_params(labelsize=8)
     ax.view_init(elev=23, azim=-55)
-    ax.legend(fontsize=9)
+    projections = []
     for slot, (i, j) in enumerate(((0, 1), (0, 2), (1, 2)), start=2):
         ax = figure.add_subplot(2, 2, slot)
         ax.scatter(
             objectives[:, i],
             objectives[:, j],
-            c=colors,
-            cmap="viridis",
-            norm=normalizer,
-            s=28,
-            alpha=0.85,
+            color="#94a3b8",
+            s=22,
+            alpha=0.65,
         )
-        ax.scatter(
-            objectives[selected_index, i],
-            objectives[selected_index, j],
-            marker="*",
-            color="#dc5b36",
-            edgecolors="#633021",
-            s=160,
-        )
+        annotations, anchors = [], []
+        for record, size in zip(records, sizes, strict=True):
+            point = objectives[record["solution_index"], [i, j]]
+            balanced = record["key"] == "balanced"
+            ax.scatter(
+                *point,
+                marker="*" if balanced else "o",
+                facecolors=record["color"] if balanced else "none",
+                edgecolors=record["color"],
+                linewidths=2.0,
+                s=size,
+                label=names[record["key"]],
+                zorder=5,
+            )
+            # Близкие точки сохраняют координаты, разносятся только их выноски.
+            annotation = ax.annotate(
+                names[record["key"]],
+                xy=point,
+                xytext=(15, 18),
+                textcoords="offset points",
+                ha="left",
+                va="center",
+                fontsize=9,
+                color=record["color"],
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.9, "pad": 1.5},
+                arrowprops={"arrowstyle": "-", "color": record["color"], "lw": 0.8},
+                zorder=6,
+            )
+            annotation.set_in_layout(False)
+            annotations.append(annotation)
+            anchors.append(point)
         ax.set(xlabel=labels[i], ylabel=labels[j])
         ax.grid(alpha=0.22)
         ax.ticklabel_format(axis="both", style="sci", scilimits=(-3, 4), useMathText=True)
+        projections.append((ax, annotations, anchors))
     figure.suptitle(
         f"Приближённый фронт Парето: допустимых решений — {len(objectives)}",
         fontsize=14,
     )
-    figure.colorbar(points, ax=figure.axes, label="Длительность T [s]", shrink=0.65, pad=0.04)
+    figure.legend(
+        handles=[
+            Line2D(
+                [],
+                [],
+                linestyle="none",
+                marker="*" if record["key"] == "balanced" else "o",
+                markerfacecolor=record["color"] if record["key"] == "balanced" else "none",
+                markeredgecolor=record["color"],
+                markeredgewidth=2,
+                markersize=10,
+                label=f"{names[record['key']]} · № {record['solution_index']}",
+            )
+            for record in records
+        ],
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.945),
+        ncol=2,
+        frameon=False,
+        fontsize=11,
+    )
+    figure.text(
+        0.5,
+        0.012,
+        "Цвета совпадают с траекториями. Серые точки — допустимые решения фронта.\n"
+        "Совпадающие номера: одно решение; вложенные контуры сохраняют цвета вариантов.",
+        ha="center",
+        fontsize=10,
+        color="#526378",
+    )
+    figure.canvas.draw()
+    for ax, annotations, anchors in projections:
+        _place_pareto_labels(
+            ax, annotations, ax.transData.transform(anchors), figure.canvas.get_renderer()
+        )
     return figure
 
 

@@ -6,18 +6,59 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from matplotlib.colors import to_rgba
 
 from manipulator_planning.robot import RobotModel
 from manipulator_planning.trajectory import fit_path
-from manipulator_planning.variants import interpolate_rrt_path, rrt_tool_path, select_variants
+from manipulator_planning.variants import (
+    VARIANT_STYLES,
+    interpolate_rrt_path,
+    rrt_tool_path,
+    select_variants,
+)
 from manipulator_planning.visualization import (
     _VIEW_ANGLES,
     _capsule_faces,
     _joint_figure,
+    _pareto_figure,
     _save_animation,
     _scene_figure,
     create_report,
 )
+
+
+@pytest.mark.parametrize(
+    "objectives,selected,indices",
+    [
+        ([[10, 50, 3], [5, 200, 5], [20, 10, 7], [9, 40, 4]], 3, [0, 1, 2, 3]),
+        ([[5, 50, 3], [8, 10, 7], [6, 40, 4]], 2, [0, 0, 1, 2]),
+    ],
+)
+def test_pareto_highlights_preserve_actual_objectives_and_trajectory_colors(
+    objectives, selected, indices
+) -> None:
+    values = np.array(objectives, dtype=float)
+    figure = _pareto_figure(values, selected)
+    try:
+        names = ["Минимум времени", "Минимум усилий", "Минимум рывка", "Сбалансированный"]
+        assert [label.get_text() for label in figure.legends[0].texts] == [
+            f"{name} · № {index}" for name, index in zip(names, indices, strict=True)
+        ]
+        for ax, columns in zip(figure.axes, ((0, 1, 2), (0, 1), (0, 2), (1, 2)), strict=True):
+            highlights = ax.collections[1:]
+            assert len(highlights) == 4
+            for artist, index, style in zip(highlights, indices, VARIANT_STYLES, strict=True):
+                coordinates = (
+                    np.array(artist._offsets3d).T if len(columns) == 3 else artist.get_offsets()
+                )
+                np.testing.assert_allclose(coordinates, values[index, list(columns)][None, :])
+                np.testing.assert_allclose(artist.get_edgecolors()[0], to_rgba(style[2]))
+            # Совпадающие решения остаются в одной точке, оба контура видны по размеру.
+            assert highlights[0].get_sizes()[0] > highlights[1].get_sizes()[0]
+            if len(columns) == 2:
+                assert [annotation.get_text() for annotation in ax.texts] == names
+    finally:
+        figure.clear()
 
 
 def test_capsule_mesh_uses_link_endpoints_and_physical_radius() -> None:
