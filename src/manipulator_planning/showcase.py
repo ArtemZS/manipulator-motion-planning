@@ -103,7 +103,15 @@ def _write_gallery(output_dir: Path, entries: list[dict], series_dir: Path) -> N
             f'<a href="{safe}/interactive.html">Вращаемая 3D-сцена</a> · '
             f'<a href="{safe}/variants.csv">Таблица CSV</a></p>'
             f'<a href="{safe}/view.html"><img src="{safe}/comparison.png" '
-            f'alt="Четыре траектории, RRT* и базовый сплайн: {safe}"></a>' + table + "</section>"
+            f'alt="Четыре траектории, RRT* и базовый сплайн: {safe}"></a>'
+            + table
+            + f'<figure id="pareto-{safe}"><h3>Фронт Парето: {safe}</h3>'
+            f'<a href="{safe}/pareto.png" aria-label="Увеличить фронт Парето: {safe}">'
+            f'<img src="{safe}/pareto.png" loading="lazy" '
+            f'alt="Фронт Парето и три попарные проекции критериев: {safe}"></a>'
+            "<figcaption>Пространственный фронт и три попарные проекции: усилия, рывок и время. "
+            "Звезда отмечает сбалансированное решение, цвет — длительность движения. "
+            f"Показаны допустимые решения для seed {entry['seed']}.</figcaption></figure></section>"
         )
     if combined:
         with (output_dir / "variants.csv").open("w", encoding="utf-8-sig", newline="") as stream:
@@ -117,6 +125,7 @@ def _write_gallery(output_dir: Path, entries: list[dict], series_dir: Path) -> N
         "body{font:16px/1.5 system-ui,sans-serif;max-width:1200px;margin:auto;padding:24px;"
         "background:#f3f6fa;color:#203448}section{background:white;padding:24px;margin:24px 0;"
         "border-radius:12px}img{width:100%;height:auto}a{color:#225ba8}.table{overflow:auto}"
+        "figure{margin:24px 0}figcaption{color:#526378;font-size:14px}"
         "table{border-collapse:collapse;font-size:13px}th,td{padding:6px 10px;text-align:right;"
         "border-bottom:1px solid #ddd}</style><h1>Пять сцен: движение манипулятора 6R</h1>"
         "<p>Для каждой сцены показаны минимальное время, минимальные затраты усилий, "
