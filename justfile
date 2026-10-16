@@ -46,6 +46,12 @@ showcase-add directory output="results/showcase":
 showcase-statistics directory output="results/showcase":
     uv run manipulator-planning showcase-statistics "{{directory}}" --output "{{output}}"
 
+pages-snapshot source="results/showcase":
+    uv run python scripts/build_pages.py snapshot --source "{{source}}"
+
+pages-build output=".cache/pages-build":
+    uv run python scripts/build_pages.py build --output "{{output}}"
+
 pages-export output=".cache/pages-site":
     uv run python scripts/export_showcase.py --output "{{output}}"
 

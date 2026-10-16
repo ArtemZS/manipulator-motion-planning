@@ -1,0 +1,1330 @@
+{
+  "schema_version": 1,
+  "status": "success",
+  "method": "full",
+  "failure_stage": null,
+  "scene": "scattered",
+  "options": {
+    "seed": 0,
+    "rrt_iterations": 800,
+    "population": 20,
+    "generations": 12,
+    "control_points": 12,
+    "shape_radius": 0.12,
+    "minimum_duration": 1.0,
+    "maximum_duration": 12.0,
+    "plots": false,
+    "method": "full",
+    "rrt_step_size": 0.1,
+    "rrt_goal_bias": 0.25,
+    "rrt_local_sample_rate": 0.45,
+    "rrt_local_sample_scale": 0.12,
+    "views": [
+      "isometric"
+    ],
+    "frame_count": 55
+  },
+  "environment": {
+    "python": "3.14.0",
+    "packages": {
+      "manipulator-planning": "0.1.0",
+      "mujoco": "3.16.0",
+      "numpy": "2.5.4",
+      "scipy": "1.18.1",
+      "pymoo": "0.6.2"
+    }
+  },
+  "seeds": {
+    "rrt": 0,
+    "nsga2": 1
+  },
+  "objectives": {
+    "names": [
+      "J_tau",
+      "J_jerk",
+      "T"
+    ],
+    "units": [
+      "(N m)^2 s",
+      "rad^2 / s^5",
+      "s"
+    ],
+    "effort_is_not_electrical_energy": true
+  },
+  "planning": {
+    "direct_motion_valid": false,
+    "iterations": 800,
+    "nodes": 335,
+    "path_points": 4,
+    "normalized_path_length": 0.4521440483609835,
+    "cost_history": [
+      [
+        52,
+        0.5401545306985831
+      ],
+      [
+        152,
+        0.5364665977293439
+      ],
+      [
+        165,
+        0.4521440483609835
+      ]
+    ],
+    "start_error": 0.0,
+    "goal_error": 0.0
+  },
+  "baseline": {
+    "objectives": [
+      768.0672316303353,
+      127.24249362895492,
+      5.059872605042126
+    ],
+    "control_points": 18,
+    "validation": {
+      "feasible": true,
+      "collision_certified": true,
+      "minimum_sampled_clearance": 0.025646556682706847,
+      "collision_clearance_lower_bound": 0.015020343467393525,
+      "position_violation": 0.0,
+      "velocity_ratio": 0.6064983953588337,
+      "acceleration_ratio": 0.7561436672967864,
+      "torque_ratio": 0.20323403413984217,
+      "endpoint_position_error": 0.0,
+      "endpoint_velocity_error": 0.0,
+      "endpoint_acceleration_error": 3.552393022702638e-14,
+      "checked_intervals": 1085,
+      "dynamic_samples": 301,
+      "reason": "accepted"
+    },
+    "fit_attempts": [
+      "K=12: сглаживание не прошло проверку геометрии"
+    ]
+  },
+  "optimization": {
+    "evaluations": 240,
+    "sampled_feasible_candidates": 205,
+    "rejected_at_final_validation": 1,
+    "history": [
+      {
+        "generation": 1,
+        "evaluations": 20,
+        "feasible_population": 11,
+        "nondominated_population": 9
+      },
+      {
+        "generation": 2,
+        "evaluations": 40,
+        "feasible_population": 20,
+        "nondominated_population": 13
+      },
+      {
+        "generation": 3,
+        "evaluations": 60,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 4,
+        "evaluations": 80,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 5,
+        "evaluations": 100,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 6,
+        "evaluations": 120,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 7,
+        "evaluations": 140,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 8,
+        "evaluations": 160,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 9,
+        "evaluations": 180,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 10,
+        "evaluations": 200,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 11,
+        "evaluations": 220,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      },
+      {
+        "generation": 12,
+        "evaluations": 240,
+        "feasible_population": 20,
+        "nondominated_population": 20
+      }
+    ]
+  },
+  "selected_index": 20,
+  "solutions": [
+    {
+      "index": 0,
+      "objectives": [
+        650.8064142554007,
+        308.104271578863,
+        4.2594896244630815
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.022290928019093405,
+        "collision_clearance_lower_bound": 0.015056184961677935,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6959478529453277,
+        "acceleration_ratio": 0.992583422942467,
+        "torque_ratio": 0.20738225819298103,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 5.012853862942402e-14,
+        "checked_intervals": 1169,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 1,
+      "objectives": [
+        650.9962418519701,
+        296.65017510502133,
+        4.2594896244630815
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.018867104178262425,
+        "collision_clearance_lower_bound": 0.015003727547104894,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.7216075080509675,
+        "acceleration_ratio": 0.9590989619631717,
+        "torque_ratio": 0.2069792100651684,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 5.012853862942402e-14,
+        "checked_intervals": 1367,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 2,
+      "objectives": [
+        675.4674117482434,
+        246.7901627438319,
+        4.43014597211534
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025646556762825675,
+        "collision_clearance_lower_bound": 0.015020343467393525,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6927095935425476,
+        "acceleration_ratio": 0.9863871630223363,
+        "torque_ratio": 0.20650559037683303,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 4.634086122986287e-14,
+        "checked_intervals": 1085,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 3,
+      "objectives": [
+        675.4516744714687,
+        248.0876265827221,
+        4.43014597211534
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.026408388165852666,
+        "collision_clearance_lower_bound": 0.015039172020520405,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6927095935425476,
+        "acceleration_ratio": 0.9863871630223363,
+        "torque_ratio": 0.20654414129291462,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 4.634086122986287e-14,
+        "checked_intervals": 1083,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 4,
+      "objectives": [
+        680.6540436550165,
+        231.24378121711464,
+        4.465707542981523
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02681629615656877,
+        "collision_clearance_lower_bound": 0.015091741734199013,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6867651987536318,
+        "acceleration_ratio": 0.9750547853245941,
+        "torque_ratio": 0.20645927879739492,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 4.560575161239099e-14,
+        "checked_intervals": 1067,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 5,
+      "objectives": [
+        683.5315602569694,
+        214.5665795745949,
+        4.48902864042836
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02921055068444983,
+        "collision_clearance_lower_bound": 0.015034816707450098,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6615283639497194,
+        "acceleration_ratio": 0.8948243320029794,
+        "torque_ratio": 0.20459514467711604,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 4.5133126662535785e-14,
+        "checked_intervals": 961,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 6,
+      "objectives": [
+        749.6117996121418,
+        141.97865744284204,
+        4.936175546085098
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02599803089288649,
+        "collision_clearance_lower_bound": 0.015056578004583845,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6122236476267832,
+        "acceleration_ratio": 0.7957001701043935,
+        "torque_ratio": 0.20380511188254594,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.732664712373967e-14,
+        "checked_intervals": 1059,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 7,
+      "objectives": [
+        754.4119110621801,
+        137.15755132516642,
+        4.966444674331403
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025852626809876763,
+        "collision_clearance_lower_bound": 0.015127782549164817,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6189494034044537,
+        "acceleration_ratio": 0.7848601100913072,
+        "torque_ratio": 0.2037410848442476,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.687304214327559e-14,
+        "checked_intervals": 1093,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 8,
+      "objectives": [
+        759.6762445327296,
+        134.6374567620731,
+        5.003027012915879
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02564661901644796,
+        "collision_clearance_lower_bound": 0.01502039773606572,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6133895755021321,
+        "acceleration_ratio": 0.7734242570002893,
+        "torque_ratio": 0.20347767191661018,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.633577920422368e-14,
+        "checked_intervals": 1085,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 9,
+      "objectives": [
+        759.801909860448,
+        134.62310834528267,
+        5.003878070712435
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025635125042561543,
+        "collision_clearance_lower_bound": 0.015016151146806399,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6132852504220282,
+        "acceleration_ratio": 0.7731611919299539,
+        "torque_ratio": 0.2034739617865938,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.632342030259171e-14,
+        "checked_intervals": 1085,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 10,
+      "objectives": [
+        761.7886813434661,
+        125.84448861086705,
+        5.0177691495106
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025215016061521652,
+        "collision_clearance_lower_bound": 0.015196575721236318,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6132774967350086,
+        "acceleration_ratio": 0.7688972171821742,
+        "torque_ratio": 0.20343130073445598,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.61225848091824e-14,
+        "checked_intervals": 1089,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 11,
+      "objectives": [
+        761.7640473405137,
+        126.4043057816623,
+        5.019405254235754
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.028427126124787813,
+        "collision_clearance_lower_bound": 0.015148244773289854,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6149956983597225,
+        "acceleration_ratio": 0.6651768468052642,
+        "torque_ratio": 0.20219465147986457,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.609903990828383e-14,
+        "checked_intervals": 1001,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 12,
+      "objectives": [
+        767.9937713349808,
+        121.03526470288313,
+        5.059872605042126
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025217811135210818,
+        "collision_clearance_lower_bound": 0.015124652637264056,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6065292500238444,
+        "acceleration_ratio": 0.7561543903688475,
+        "torque_ratio": 0.20325138196210485,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.552393022702638e-14,
+        "checked_intervals": 1089,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 13,
+      "objectives": [
+        778.5348692276651,
+        117.37770201692425,
+        5.129408301462635
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02195415801125627,
+        "collision_clearance_lower_bound": 0.015059676065573655,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.5594410751048343,
+        "acceleration_ratio": 0.704418624382227,
+        "torque_ratio": 0.20251339989116465,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.456731384975705e-14,
+        "checked_intervals": 1069,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 14,
+      "objectives": [
+        780.5275053549309,
+        110.31386158597381,
+        5.143366023033101
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.022212739256304733,
+        "collision_clearance_lower_bound": 0.015010191491639634,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.5992952370350774,
+        "acceleration_ratio": 0.7007074327316226,
+        "torque_ratio": 0.20253685159333673,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 3.4379955502015905e-14,
+        "checked_intervals": 1125,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 15,
+      "objectives": [
+        844.5350210297263,
+        86.713870959532,
+        5.577604280544
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.026276302299881423,
+        "collision_clearance_lower_bound": 0.015236010881765669,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.6243137623189547,
+        "acceleration_ratio": 0.6222710322614069,
+        "torque_ratio": 0.201226070196572,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.923511294359964e-14,
+        "checked_intervals": 1153,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 16,
+      "objectives": [
+        853.0023197587011,
+        79.49821772243506,
+        5.635354591372842
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.029825435385880197,
+        "collision_clearance_lower_bound": 0.015287048232966415,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.580252775087268,
+        "acceleration_ratio": 0.6078231052485775,
+        "torque_ratio": 0.20134542953671308,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.863898863071121e-14,
+        "checked_intervals": 1203,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 17,
+      "objectives": [
+        853.0923663539764,
+        75.40182817637628,
+        5.635354591372842
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02583363201414293,
+        "collision_clearance_lower_bound": 0.015041676975996572,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.544955891380296,
+        "acceleration_ratio": 0.6078231052485775,
+        "torque_ratio": 0.20105621469147053,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.863898863071121e-14,
+        "checked_intervals": 1075,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 18,
+      "objectives": [
+        856.3254433151639,
+        69.2883900767982,
+        5.656590938698332
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025646556682706847,
+        "collision_clearance_lower_bound": 0.01507143980729373,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.5425183911892257,
+        "acceleration_ratio": 0.6050258595948672,
+        "torque_ratio": 0.2011034351654858,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.8424355517823525e-14,
+        "checked_intervals": 1069,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 19,
+      "objectives": [
+        862.5873783114549,
+        65.87882638763655,
+        5.698694394229858
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02541912205035304,
+        "collision_clearance_lower_bound": 0.015031022788989268,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.5399708371179714,
+        "acceleration_ratio": 0.5940436138144279,
+        "torque_ratio": 0.20133773993414963,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.8005893847928844e-14,
+        "checked_intervals": 1053,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 20,
+      "objectives": [
+        862.5949164118427,
+        63.46446303012148,
+        5.698694394229858
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.026403068195758408,
+        "collision_clearance_lower_bound": 0.015006771002154327,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.5399708371179714,
+        "acceleration_ratio": 0.5961187452429981,
+        "torque_ratio": 0.20102296870584796,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.8005893847928844e-14,
+        "checked_intervals": 1057,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 21,
+      "objectives": [
+        951.0892293653707,
+        44.181471486434184,
+        6.300087948080726
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.03417090201072568,
+        "collision_clearance_lower_bound": 0.015062270064973599,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.48759235959553027,
+        "acceleration_ratio": 0.45793739310836523,
+        "torque_ratio": 0.20010020852369517,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.291431869965405e-14,
+        "checked_intervals": 971,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 22,
+      "objectives": [
+        954.0675747161141,
+        41.232455355085854,
+        6.308495309473702
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02637981065801123,
+        "collision_clearance_lower_bound": 0.015107868581880728,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.4873810057664558,
+        "acceleration_ratio": 0.4524242378976121,
+        "torque_ratio": 0.1990742917225112,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.285328335704045e-14,
+        "checked_intervals": 1091,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 23,
+      "objectives": [
+        953.3350070383807,
+        41.31992000546209,
+        6.308495309473702
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.023579367537503195,
+        "collision_clearance_lower_bound": 0.015032421739844632,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.4873810057664558,
+        "acceleration_ratio": 0.43744426192303354,
+        "torque_ratio": 0.1990842088242609,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.285328335704045e-14,
+        "checked_intervals": 1019,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 24,
+      "objectives": [
+        1001.2091566511518,
+        32.84662052227885,
+        6.630037871702823
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025743415372789093,
+        "collision_clearance_lower_bound": 0.015174543688772926,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.4563469237060288,
+        "acceleration_ratio": 0.44040421416469616,
+        "torque_ratio": 0.19878342673763955,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.0690365141330255e-14,
+        "checked_intervals": 1081,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 25,
+      "objectives": [
+        1001.9149088363629,
+        31.70783165469997,
+        6.634556494100648
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02574869317050354,
+        "collision_clearance_lower_bound": 0.015065127439962897,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.46286180476896277,
+        "acceleration_ratio": 0.4398045229350982,
+        "torque_ratio": 0.19877760332234054,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.0662191408851405e-14,
+        "checked_intervals": 1073,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 26,
+      "objectives": [
+        1015.103046484198,
+        28.84525256130051,
+        6.725141508202059
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02885271136615133,
+        "collision_clearance_lower_bound": 0.0150344791469313,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.45033304804719043,
+        "acceleration_ratio": 0.3912426468856175,
+        "torque_ratio": 0.19791789709604016,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 2.0109316954769315e-14,
+        "checked_intervals": 991,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 27,
+      "objectives": [
+        1035.8513509391062,
+        25.25479094308244,
+        6.8629072424441375
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.023596467054613015,
+        "collision_clearance_lower_bound": 0.015103212802990679,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.44763439052742,
+        "acceleration_ratio": 0.355657815405929,
+        "torque_ratio": 0.19764838149436106,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.9310072984215974e-14,
+        "checked_intervals": 1049,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 28,
+      "objectives": [
+        1034.4407623460638,
+        25.88165797433851,
+        6.8629072424441375
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.032496199728100396,
+        "collision_clearance_lower_bound": 0.015006947957602601,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.4428698986070695,
+        "acceleration_ratio": 0.3689941882554857,
+        "torque_ratio": 0.19851014376623582,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.9310072984215974e-14,
+        "checked_intervals": 949,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 29,
+      "objectives": [
+        1225.4543274423477,
+        12.959739933753687,
+        8.148672979226703
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.03569101107712743,
+        "collision_clearance_lower_bound": 0.015010802203444334,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.40649943781045894,
+        "acceleration_ratio": 0.30667610092820097,
+        "torque_ratio": 0.19625525758469967,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.3697029627175948e-14,
+        "checked_intervals": 913,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 30,
+      "objectives": [
+        1225.3795440864278,
+        13.056100353980433,
+        8.148672979226703
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.03958754759752175,
+        "collision_clearance_lower_bound": 0.015055212839382381,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.40649943781045894,
+        "acceleration_ratio": 0.30969989766335493,
+        "torque_ratio": 0.1958002903387159,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.3697029627175948e-14,
+        "checked_intervals": 899,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 31,
+      "objectives": [
+        1283.3470775530866,
+        9.35152620537946,
+        8.51787322716724
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.0262225183815207,
+        "collision_clearance_lower_bound": 0.015011431569564693,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.3369057629312216,
+        "acceleration_ratio": 0.26677547219561226,
+        "torque_ratio": 0.19632543466111835,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.2535389393166423e-14,
+        "checked_intervals": 1009,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 32,
+      "objectives": [
+        1285.285993483564,
+        8.829774017862864,
+        8.53183094873455
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.026427918228457855,
+        "collision_clearance_lower_bound": 0.015130957824061184,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.3612817434444092,
+        "acceleration_ratio": 0.265942142811902,
+        "torque_ratio": 0.19637560403784113,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 1.2494408188121914e-14,
+        "checked_intervals": 1071,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 33,
+      "objectives": [
+        1474.4697858677703,
+        4.625779615399063,
+        9.795506862800966
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.027712811444957654,
+        "collision_clearance_lower_bound": 0.015027067664537107,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.3133037989638013,
+        "acceleration_ratio": 0.20175361902612457,
+        "torque_ratio": 0.19551406438782912,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 9.478646939755286e-15,
+        "checked_intervals": 1069,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 34,
+      "objectives": [
+        1475.8193791701908,
+        4.516434255154006,
+        9.807270619571934
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02658062124959509,
+        "collision_clearance_lower_bound": 0.015023614680741992,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.31290700858170856,
+        "acceleration_ratio": 0.19798047938732607,
+        "torque_ratio": 0.19529626532626887,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 9.45592142784e-15,
+        "checked_intervals": 1053,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 35,
+      "objectives": [
+        1485.6285963211071,
+        4.301230609306002,
+        9.869490542685723
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.026345646606943853,
+        "collision_clearance_lower_bound": 0.01501444509253308,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.3114686955176581,
+        "acceleration_ratio": 0.19865816028284192,
+        "torque_ratio": 0.195461716098778,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 9.337071897819355e-15,
+        "checked_intervals": 1071,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 36,
+      "objectives": [
+        1507.299385288069,
+        4.190473686628784,
+        10.013860110637161
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02563540241730602,
+        "collision_clearance_lower_bound": 0.015016253563087716,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.30645571056243864,
+        "acceleration_ratio": 0.19305472879567562,
+        "torque_ratio": 0.19537285356447065,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 9.069787941559646e-15,
+        "checked_intervals": 1085,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 37,
+      "objectives": [
+        1520.914464037401,
+        4.005962059218906,
+        10.10472853202486
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025646556682706847,
+        "collision_clearance_lower_bound": 0.015020343467393525,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.3036998575421622,
+        "acceleration_ratio": 0.1895981883965773,
+        "torque_ratio": 0.19532675411561004,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 8.907398298856639e-15,
+        "checked_intervals": 1085,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 38,
+      "objectives": [
+        1542.0025190604151,
+        3.9008105834977047,
+        10.258298745823616
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.03428678327535026,
+        "collision_clearance_lower_bound": 0.015002975304512195,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2915685393301773,
+        "acceleration_ratio": 0.17664009092507932,
+        "torque_ratio": 0.19538290319287457,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 8.642700994095879e-15,
+        "checked_intervals": 903,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 39,
+      "objectives": [
+        1562.983458717144,
+        3.7195035317954153,
+        10.395131724749074
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02746688907624747,
+        "collision_clearance_lower_bound": 0.01508011523022415,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2880552529091292,
+        "acceleration_ratio": 0.18052884918485526,
+        "torque_ratio": 0.19523695251753764,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 8.416667669370924e-15,
+        "checked_intervals": 963,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 40,
+      "objectives": [
+        1563.1865730520599,
+        3.6680633304453703,
+        10.395131724749074
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.02669057447171932,
+        "collision_clearance_lower_bound": 0.015074936778255305,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2880552529091292,
+        "acceleration_ratio": 0.1791527546998326,
+        "torque_ratio": 0.1952211024636725,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 8.416667669370924e-15,
+        "checked_intervals": 965,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 41,
+      "objectives": [
+        1616.9347966589794,
+        2.7165911328045262,
+        10.744444614642985
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025556003913959315,
+        "collision_clearance_lower_bound": 0.015019395926428172,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2674555330130162,
+        "acceleration_ratio": 0.16769323439769526,
+        "torque_ratio": 0.19503273282330244,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 7.878294847836023e-15,
+        "checked_intervals": 1025,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 42,
+      "objectives": [
+        1616.931824742514,
+        2.884217187536891,
+        10.744444614642985
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.025556003913959315,
+        "collision_clearance_lower_bound": 0.015019395926428172,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2674555330130162,
+        "acceleration_ratio": 0.16769323439769526,
+        "torque_ratio": 0.19503273282330244,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 7.878294847836023e-15,
+        "checked_intervals": 1025,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 43,
+      "objectives": [
+        1699.3137939843862,
+        2.1517931297489032,
+        11.292051407953835
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.022157503560368188,
+        "collision_clearance_lower_bound": 0.015026569237858403,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2722301939388012,
+        "acceleration_ratio": 0.14537370893136065,
+        "torque_ratio": 0.19477168488510962,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 7.13270857479959e-15,
+        "checked_intervals": 1127,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 44,
+      "objectives": [
+        1709.5826558817423,
+        2.1353255550230994,
+        11.360082314132471
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.022213283418889642,
+        "collision_clearance_lower_bound": 0.015009861265176415,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2701502330661972,
+        "acceleration_ratio": 0.1436401317708213,
+        "torque_ratio": 0.19474239584349876,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 7.047534603651788e-15,
+        "checked_intervals": 1137,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 45,
+      "objectives": [
+        1717.9561787841335,
+        2.0607463762799116,
+        11.435143918509683
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.03356942786506647,
+        "collision_clearance_lower_bound": 0.015136029176379136,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.2683712609201396,
+        "acceleration_ratio": 0.13335753038168868,
+        "torque_ratio": 0.1947479428701941,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 6.955316604134883e-15,
+        "checked_intervals": 971,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    },
+    {
+      "index": 46,
+      "objectives": [
+        1760.1024595702333,
+        1.939315876642557,
+        11.694610731738752
+      ],
+      "validation": {
+        "feasible": true,
+        "collision_certified": true,
+        "minimum_sampled_clearance": 0.017341625508739935,
+        "collision_clearance_lower_bound": 0.015002079900496524,
+        "position_violation": 0.0,
+        "velocity_ratio": 0.26253892005268087,
+        "acceleration_ratio": 0.13575078898943113,
+        "torque_ratio": 0.19465524928473477,
+        "endpoint_position_error": 0.0,
+        "endpoint_velocity_error": 0.0,
+        "endpoint_acceleration_error": 6.6501069921294354e-15,
+        "checked_intervals": 1367,
+        "dynamic_samples": 301,
+        "reason": "accepted"
+      }
+    }
+  ],
+  "checks": {
+    "geometric_interval_certification": true,
+    "kinematic_bounds": "spline coefficient hulls",
+    "torque_validation": "301 time samples, not a continuous-time certificate",
+    "pareto_front": "finite approximation among validated candidates",
+    "animation": "kinematic playback, not closed-loop dynamic tracking"
+  },
+  "collision_queries": 208226,
+  "timings_seconds": {
+    "planning": 10.34138289999828,
+    "smoothing": 0.4606370000001334,
+    "optimization_and_validation": 9.402786799997557,
+    "artifacts": 0.05568879999918863,
+    "total": 20.78974240000025
+  },
+  "artifacts": {}
+}
