@@ -40,6 +40,12 @@ experiments:
 showcase series="results/experiments_current" output="results/showcase":
     uv run manipulator-planning showcase "{{series}}" --output "{{output}}"
 
+showcase-add directory output="results/showcase":
+    uv run manipulator-planning showcase-add "{{directory}}" --output "{{output}}"
+
+showcase-statistics directory output="results/showcase":
+    uv run manipulator-planning showcase-statistics "{{directory}}" --output "{{output}}"
+
 serve port="8766":
     uv run python -m http.server {{port}} --bind 127.0.0.1 --directory results
 

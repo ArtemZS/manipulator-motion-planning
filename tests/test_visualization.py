@@ -21,7 +21,9 @@ from manipulator_planning.visualization import (
     _capsule_faces,
     _joint_figure,
     _pareto_figure,
+    _passage_outline,
     _save_animation,
+    _scene_bounds,
     _scene_figure,
     create_report,
 )
@@ -236,3 +238,76 @@ def test_gif_configurations_are_samples_of_selected_bspline(tmp_path: Path, monk
     np.testing.assert_allclose(observed[:5], trajectory.evaluate(np.linspace(0, 1, 5)))
     with Image.open(destination) as gif:
         assert gif.n_frames == 5
+
+
+def test_passage_png_uses_exact_window_bounds_and_actual_elbow() -> None:
+    robot = RobotModel()
+    goal = np.array([0.0, 0.0, -1.3, 0.0, 0.0, 0.0])
+    trajectory = fit_path([[-1.2, -0.2, -0.1, 0, 0, 0], goal])
+    scene = {
+        "goal": goal,
+        "passage": {
+            "axis": "x",
+            "coordinate": 0.55,
+            "bounds": {"y": [-0.16, 0.16], "z": [0.6, 1.22]},
+        },
+    }
+    outline, label = _passage_outline(scene)
+    np.testing.assert_allclose(outline[:, 0], 0.55)
+    np.testing.assert_allclose(outline.min(axis=0), [0.55, -0.16, 0.6])
+    np.testing.assert_allclose(outline.max(axis=0), [0.55, 0.16, 1.22])
+    assert label == "Окно 32 × 62 см"
+    figure = _scene_figure(robot, scene, trajectory, None)
+    try:
+        ax = figure.axes[0]
+        window = next(line for line in ax.lines if line.get_gid() == "passage-outline")
+        np.testing.assert_allclose(np.array(window.get_data_3d()).T, outline)
+        elbow = next(line for line in ax.lines if line.get_label().startswith("Локоть"))
+        np.testing.assert_allclose(
+            np.array(elbow.get_data_3d()).ravel(),
+            robot.joint_positions(trajectory.evaluate(0.5))[2],
+        )
+        assert "40.1°" in elbow.get_label()
+    finally:
+        figure.clear()
+
+
+def test_view_bounds_explicitly_focuses_camera_without_changing_scene_geometry() -> None:
+    bounds = {"x": [-0.25, 1.15], "y": [-1.25, 0.45], "z": [0, 1.6]}
+    obstacle = {"kind": "box", "position": [0.55, 0, 0.3], "half_size": [0.015, 1.4, 0.3]}
+    scene = {"view_bounds": bounds, "obstacles": [obstacle]}
+    center, radius = _scene_bounds(np.array([[0, 0, 0], [1, -1, 1]]), scene)
+    np.testing.assert_allclose(center, [0.45, -0.4, 0.8])
+    assert radius == pytest.approx(0.85)
+    assert scene["obstacles"][0]["half_size"] == [0.015, 1.4, 0.3]
+    with pytest.raises(ValueError, match="view_bounds"):
+        _scene_bounds(np.zeros((1, 3)), {"view_bounds": {**bounds, "x": [1, 0]}})
+
+
+def test_passage_gif_updates_elbow_position_and_absolute_angle(tmp_path: Path, monkeypatch) -> None:
+    from matplotlib.animation import FuncAnimation
+
+    robot = RobotModel()
+    trajectory = fit_path([[-1.2, -0.2, -0.1, 0, 0, 0], [0, 0, -1.3, 0, 0, 0]])
+    scene = {
+        "passage": {
+            "axis": "x",
+            "coordinate": 0.55,
+            "bounds": {"y": [-0.16, 0.16], "z": [0.6, 1.22]},
+        }
+    }
+    observed = []
+
+    def capture_frames(animation, *_args, **_kwargs):
+        for index in range(5):
+            animation._func(index)
+            ax = animation._fig.axes[0]
+            elbow = next(line for line in ax.lines if line.get_label() == "Локоть: сустав 3")
+            observed.append((np.array(elbow.get_data_3d()).ravel(), ax.get_title()))
+        animation._draw_was_started = True
+
+    monkeypatch.setattr(FuncAnimation, "save", capture_frames)
+    _save_animation(tmp_path / "passage.gif", robot, scene, trajectory, frame_count=5)
+    for (point, title), q in zip(observed, trajectory.sample(5)["q"], strict=True):
+        np.testing.assert_allclose(point, robot.joint_positions(q)[2])
+        assert f"Локоть |q₃| = {np.rad2deg(abs(q[2])):.1f}°" in title

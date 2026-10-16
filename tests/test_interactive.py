@@ -136,3 +136,63 @@ def test_comparison_paths_do_not_replace_balanced_bspline_animation() -> None:
                 _capsule_faces(positions[index], positions[index + 1], robot.link_radii[index])
             )
             np.testing.assert_allclose(np.column_stack((mesh.x, mesh.y, mesh.z)), expected)
+
+
+def test_passage_outline_and_elbow_follow_metadata_and_same_spline() -> None:
+    robot = RobotModel()
+    trajectory = fit_path([[-1.2, -0.2, -0.1, 0, 0, 0], [0, 0, -1.3, 0, 0, 0]])
+    scene = {
+        "passage": {
+            "axis": "x",
+            "coordinate": 0.55,
+            "bounds": {"y": [-0.16, 0.16], "z": [0.6, 1.22]},
+        }
+    }
+    figure = build_interactive_figure(robot, scene, trajectory, frame_count=5)
+    window = next(trace for trace in figure.data if trace.name == "Окно 32 × 62 см")
+    np.testing.assert_allclose(window.x, 0.55)
+    np.testing.assert_allclose([min(window.y), max(window.y)], [-0.16, 0.16])
+    np.testing.assert_allclose([min(window.z), max(window.z)], [0.6, 1.22])
+    assert any(trace.name == "Локоть: сустав 3" for trace in figure.data)
+    expected_angles = np.rad2deg(np.abs(trajectory.sample(5)["q"][:, 2]))
+    np.testing.assert_allclose(figure.layout.meta["elbow_angles_degrees"], expected_angles)
+    for frame, q, angle in zip(
+        figure.frames, trajectory.sample(5)["q"], expected_angles, strict=True
+    ):
+        assert len(frame.data) == 9
+        elbow = frame.data[6]
+        np.testing.assert_allclose(
+            [elbow.x[0], elbow.y[0], elbow.z[0]], robot.joint_positions(q)[2]
+        )
+        assert f"Локоть |q₃| = {angle:.1f}°" in frame.layout.annotations[0].text
+        assert frame.layout.scene.camera.eye.x is None
+    plain = build_interactive_figure(robot, {}, trajectory, frame_count=2)
+    assert not any(
+        trace.name and ("Локоть" in trace.name or "Окно" in trace.name) for trace in plain.data
+    )
+    assert all(len(frame.data) == 8 for frame in plain.frames)
+
+
+def test_passage_camera_zoom_and_legend_spacing_are_opt_in() -> None:
+    robot = RobotModel()
+    trajectory = fit_path([[-1.2, -0.2, -0.1, 0, 0, 0], [0, 0, -1.3, 0, 0, 0]])
+    passage = {"axis": "x", "coordinate": 0.55, "bounds": {"y": [-0.16, 0.16], "z": [0.6, 1.22]}}
+    figure = build_interactive_figure(robot, {"passage": passage}, trajectory, frame_count=2)
+    assert figure.layout.legend.y == -0.30
+    assert figure.layout.legend.yanchor == "top"
+    assert figure.layout.margin.b == 230
+    assert figure.layout.height == 900
+    assert figure.layout.sliders[0].y == -0.04
+    for axis, value in CAMERA_PRESETS["isometric"]["eye"].items():
+        assert getattr(figure.layout.scene.camera.eye, axis) == pytest.approx(value * 0.8)
+    for button, preset in zip(
+        figure.layout.updatemenus[1].buttons, CAMERA_PRESETS.values(), strict=True
+    ):
+        assert button.args[0]["scene.camera"]["eye"] == {
+            axis: value * 0.8 for axis, value in preset["eye"].items()
+        }
+    plain = build_interactive_figure(robot, {}, trajectory, frame_count=2)
+    assert plain.layout.height == 740
+    assert plain.layout.margin.b == 85
+    assert plain.layout.legend.y == -0.2
+    assert plain.layout.scene.camera.eye.to_plotly_json() == CAMERA_PRESETS["isometric"]["eye"]

@@ -106,6 +106,7 @@ def build_interactive_figure(
         _capsule_faces,
         _goal_position,
         _link_radii,
+        _passage_outline,
         _positions,
         _scene_bounds,
     )
@@ -144,6 +145,16 @@ def build_interactive_figure(
     center, radius = _scene_bounds(np.concatenate(view_points), scene)
     radii = _link_radii(robot, positions.shape[1] - 1)
     figure = go.Figure()
+    passage = _passage_outline(scene)
+    # Крупный план нужен только демонстрации проёма; общие пресеты не изменяются.
+    cameras = (
+        {
+            key: {**camera, "eye": {axis: value * 0.8 for axis, value in camera["eye"].items()}}
+            for key, camera in CAMERA_PRESETS.items()
+        }
+        if passage is not None
+        else CAMERA_PRESETS
+    )
 
     for index, obstacle in enumerate(scene.get("obstacles", [])):
         position = np.asarray(obstacle["position"], dtype=float)
@@ -163,6 +174,20 @@ def build_interactive_figure(
                 legendgroup="препятствия",
                 hoverinfo="name",
                 flatshading=True,
+            )
+        )
+
+    if passage is not None:
+        outline, label = passage
+        figure.add_trace(
+            go.Scatter3d(
+                x=outline[:, 0],
+                y=outline[:, 1],
+                z=outline[:, 2],
+                mode="lines",
+                line={"color": "#00a99d", "width": 8},
+                name=label,
+                hoverinfo="name",
             )
         )
 
@@ -304,6 +329,22 @@ def build_interactive_figure(
                 lighting={"ambient": 0.6, "diffuse": 0.8, "specular": 0.3},
             )
         )
+    elbow_traces = []
+    elbow_angles = np.rad2deg(np.abs(data["q"][:, 2]))
+    if passage is not None:
+        elbow_traces.append(len(figure.data))
+        figure.add_trace(
+            go.Scatter3d(
+                x=positions[:1, 2, 0],
+                y=positions[:1, 2, 1],
+                z=positions[:1, 2, 2],
+                mode="markers",
+                marker={"size": 9, "color": "#ff8a00", "line": {"color": "#4a2c00", "width": 2}},
+                name="Локоть: сустав 3",
+                customdata=[[elbow_angles[0]]],
+                hovertemplate="Локоть |q₃| = %{customdata[0]:.1f}°<extra></extra>",
+            )
+        )
     trail_trace = len(figure.data)
     figure.add_trace(
         go.Scatter3d(
@@ -330,6 +371,39 @@ def build_interactive_figure(
     )
 
     frames = []
+    state_annotation = {
+        "xref": "paper",
+        "yref": "paper",
+        "x": 0.32,
+        "y": 1.10,
+        "xanchor": "left",
+        "yanchor": "top",
+        "showarrow": False,
+        "font": {"size": 14, "color": "#a55000"},
+        "bgcolor": "#fff4e6",
+        "bordercolor": "#ff8a00",
+        "borderpad": 4,
+    }
+    passage_annotations = (
+        [
+            {
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.98,
+                "y": 0.98,
+                "xanchor": "right",
+                "yanchor": "top",
+                "showarrow": False,
+                "text": passage[1],
+                "font": {"size": 15, "color": "#007e75"},
+                "bgcolor": "white",
+                "bordercolor": "#00a99d",
+                "borderpad": 4,
+            }
+        ]
+        if passage is not None
+        else []
+    )
     for frame, points in enumerate(positions):
         meshes = []
         for index, (a, b) in enumerate(pairwise(points)):
@@ -340,6 +414,18 @@ def build_interactive_figure(
                 name=str(frame),
                 data=[
                     *meshes,
+                    *(
+                        [
+                            go.Scatter3d(
+                                x=points[2:3, 0],
+                                y=points[2:3, 1],
+                                z=points[2:3, 2],
+                                customdata=[[elbow_angles[frame]]],
+                            )
+                        ]
+                        if passage is not None
+                        else []
+                    ),
                     go.Scatter3d(
                         x=tool[: frame + 1, 0], y=tool[: frame + 1, 1], z=tool[: frame + 1, 2]
                     ),
@@ -349,7 +435,23 @@ def build_interactive_figure(
                         z=tool[frame : frame + 1, 2],
                     ),
                 ],
-                traces=[*robot_traces, trail_trace, tool_trace],
+                traces=[*robot_traces, *elbow_traces, trail_trace, tool_trace],
+                layout=(
+                    {
+                        "annotations": [
+                            {
+                                **state_annotation,
+                                "text": (
+                                    f"t = {data['time'][frame]:.2f} с · "
+                                    f"Локоть |q₃| = {elbow_angles[frame]:.1f}°"
+                                ),
+                            }
+                        ]
+                        + passage_annotations
+                    }
+                    if passage is not None
+                    else None
+                ),
             )
         )
     figure.frames = frames
@@ -371,19 +473,23 @@ def build_interactive_figure(
             "font": {"size": 16},
         },
         font={"family": "Arial, sans-serif", "size": 13, "color": "#233447"},
-        height=740,
-        margin={"l": 0, "r": 0, "t": 175, "b": 85},
+        height=900 if passage is not None else 740,
+        margin={"l": 0, "r": 0, "t": 175, "b": 230 if passage is not None else 85},
         paper_bgcolor="white",
         uirevision="камера-6R",
         showlegend=True,
-        legend={"orientation": "h", "y": -0.2, "x": 0},
+        legend=(
+            {"orientation": "h", "y": -0.30, "x": 0, "yanchor": "top"}
+            if passage is not None
+            else {"orientation": "h", "y": -0.2, "x": 0}
+        ),
         scene={
             "xaxis": {"title": "x [м]", "range": [center[0] - radius, center[0] + radius]},
             "yaxis": {"title": "y [м]", "range": [center[1] - radius, center[1] + radius]},
             "zaxis": {"title": "z [м]", "range": [center[2] - radius, center[2] + radius]},
             "aspectmode": "cube",
             "dragmode": "orbit",
-            "camera": CAMERA_PRESETS[view],
+            "camera": cameras[view],
             "annotations": [
                 {
                     "x": goal[0],
@@ -442,7 +548,7 @@ def build_interactive_figure(
                         "method": "relayout",
                         "args": [{"scene.camera": camera}],
                     }
-                    for key, camera in CAMERA_PRESETS.items()
+                    for key, camera in cameras.items()
                 ],
             },
         ],
@@ -487,6 +593,15 @@ def build_interactive_figure(
             ),
         },
     )
+    if passage is not None:
+        figure.update_layout(
+            annotations=[
+                {**state_annotation, "text": f"t = 0.00 с · Локоть |q₃| = {elbow_angles[0]:.1f}°"}
+            ]
+            + passage_annotations
+        )
+        figure.layout.meta["elbow_angles_degrees"] = elbow_angles.tolist()
+        figure.layout.meta["passage_outline"] = passage[0].tolist()
     return figure
 
 
@@ -530,6 +645,14 @@ def interactive_fragment(
         f"x = {goal[0]:.3f}; y = {goal[1]:.3f}; z = {goal[2]:.3f} м. "
         "Жёлтый маркер — текущий инструмент; зелёный — старт.</p>"
     )
+    if scene.get("passage") is not None:
+        from .visualization import _passage_outline
+
+        description += (
+            f"<p>{escape(_passage_outline(scene)[1])}: бирюзовый контур показывает границу проёма. "
+            "Оранжевый маркер выделяет локоть; |q₃| — модуль угла третьего сустава "
+            "в текущем кадре, в градусах.</p>"
+        )
     return (
         (variants_html(records) if records is not None else "")
         + description

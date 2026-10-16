@@ -161,6 +161,67 @@ def _draw_obstacles(ax: Any, scene: dict[str, Any]) -> None:
             ha="left" if side > 0 else "right",
             bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.65, "pad": 1.0},
         )
+    _draw_passage(ax, scene)
+
+
+def _passage_outline(scene: dict[str, Any]) -> tuple[np.ndarray, str] | None:
+    """Контур реального проёма из метаданных сцены без изменения препятствий."""
+    passage = scene.get("passage")
+    if passage is None:
+        return None
+    axes = ("x", "y", "z")
+    axis = passage["axis"]
+    if axis not in axes:
+        raise ValueError("Ось проёма должна быть x, y или z")
+    other_axes = [name for name in axes if name != axis]
+    first, second = [np.asarray(passage["bounds"][name], dtype=float) for name in other_axes]
+    if any(
+        value.shape != (2,) or not np.isfinite(value).all() or value[1] <= value[0]
+        for value in (first, second)
+    ):
+        raise ValueError("Границы проёма должны задавать положительные конечные размеры")
+    points = np.full((5, 3), float(passage["coordinate"]))
+    points[:, axes.index(other_axes[0])] = first[[0, 1, 1, 0, 0]]
+    points[:, axes.index(other_axes[1])] = second[[0, 0, 1, 1, 0]]
+    dimensions = (np.diff(first).item() * 100, np.diff(second).item() * 100)
+    return points, f"Окно {dimensions[0]:g} × {dimensions[1]:g} см"
+
+
+def _draw_passage(ax: Any, scene: dict[str, Any]) -> None:
+    """Выделить границу свободного окна, не закрашивая его объём."""
+    passage = _passage_outline(scene)
+    if passage is None:
+        return
+    points, label = passage
+    (outline,) = ax.plot(*points.T, color="#00a99d", lw=3.0, label=label, zorder=90)
+    outline.set_gid("passage-outline")
+    ax.text2D(
+        0.98,
+        0.88,
+        label,
+        color="#007e75",
+        fontsize=10,
+        ha="right",
+        transform=ax.transAxes,
+        fontweight="bold",
+        bbox={"facecolor": "white", "edgecolor": "#00a99d", "alpha": 0.95, "pad": 3},
+    )
+
+
+def _draw_elbow(ax: Any, position: np.ndarray, label: str = "Локоть: сустав 3") -> Any:
+    """Наглядный маркер в центре третьего сустава, поверх объёмных звеньев."""
+    (marker,) = ax.plot(
+        *position[:, None],
+        marker="o",
+        markersize=10,
+        color="#ff8a00",
+        markeredgecolor="#4a2c00",
+        markeredgewidth=1.3,
+        linestyle="none",
+        label=label,
+        zorder=96,
+    )
+    return marker
 
 
 def _draw_base(ax: Any, robot: Any) -> None:
@@ -185,7 +246,12 @@ def _positions(robot: Any, q: np.ndarray) -> np.ndarray:
 
 
 def _scene_bounds(positions: np.ndarray, scene: dict[str, Any]) -> tuple[np.ndarray, float]:
-    """Общая кубическая область обзора включает движение, пол и препятствия."""
+    """Общая область обзора или явно заданный фокус камеры без изменения физики."""
+    if scene.get("view_bounds") is not None:
+        bounds = np.asarray([scene["view_bounds"][axis] for axis in ("x", "y", "z")], dtype=float)
+        if bounds.shape != (3, 2) or not np.isfinite(bounds).all() or np.any(np.diff(bounds) <= 0):
+            raise ValueError("view_bounds должны задавать возрастающие конечные границы x, y, z")
+        return bounds.mean(axis=1), max(float(np.max(np.diff(bounds))) / 2, 0.3)
     points = [positions.reshape(-1, 3), np.array([[0.0, 0.0, 0.0]])]
     for obstacle in scene.get("obstacles", []):
         position = np.asarray(obstacle["position"], dtype=float)
@@ -309,7 +375,12 @@ def _scene_figure(
     _draw_robot(ax, robot, data["q"][0], alpha=0.20, ghost=True)
     _draw_robot(ax, robot, scene.get("goal", data["q"][-1]), alpha=0.20, ghost=True)
     _draw_target(ax, goal, tool[0])
-    _draw_robot(ax, robot, data["q"][len(data["q"]) // 2], alpha=0.95)
+    middle = len(data["q"]) // 2
+    _draw_robot(ax, robot, data["q"][middle], alpha=0.95)
+    if scene.get("passage") is not None:
+        _draw_elbow(
+            ax, positions[middle, 2], f"Локоть |q₃| = {np.rad2deg(abs(data['q'][middle, 2])):.1f}°"
+        )
     ax.plot(
         *tool[len(tool) // 2, :, None],
         markersize=8,
@@ -654,6 +725,7 @@ def _save_animation(
     _draw_target(ax, goal, positions[0, -1])
     ax.plot(*positions[:, -1].T, color="#7f9eb7", lw=1, ls="--", alpha=0.7)
     artists = _draw_robot(ax, robot, data["q"][0])
+    elbow_marker = _draw_elbow(ax, positions[0, 2]) if scene.get("passage") is not None else None
     radii = _link_radii(robot, len(artists))
     (trail,) = ax.plot([], [], [], color="#165f9c", lw=2)
     (tool_marker,) = ax.plot(
@@ -684,11 +756,15 @@ def _save_animation(
         tool = positions[: frame + 1, -1]
         trail.set_data_3d(*tool.T)
         tool_marker.set_data_3d(*tool[-1:, :].T)
+        elbow_text = ""
+        if elbow_marker is not None:
+            elbow_marker.set_data_3d(*positions[frame, 2:3].T)
+            elbow_text = f"\nЛокоть |q₃| = {np.rad2deg(abs(data['q'][frame, 2])):.1f}°"
         title.set_text(
             f"6R | {_VIEW_ANGLES[view][2]} | "
-            f"t = {data['time'][frame]:.2f} / {trajectory.duration:.2f} с"
+            f"t = {data['time'][frame]:.2f} / {trajectory.duration:.2f} с{elbow_text}"
         )
-        return (*artists, trail, tool_marker, title)
+        return (*artists, trail, tool_marker, title, *((elbow_marker,) if elbow_marker else ()))
 
     fps = max(1, round(frame_count / 5.5))
     animation = FuncAnimation(

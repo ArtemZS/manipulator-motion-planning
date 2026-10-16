@@ -19,11 +19,15 @@ def test_catalog_describes_all_packaged_scenes():
         "gate",
         "shelves",
         "cluttered",
+        "narrow_passage",
     ]
     for item in catalog:
         assert item["description"]
         assert item["obstacle_count"] == len(load_named_scene(item["name"])["obstacles"])
-        assert item["obstacle_count"] >= 6
+        if item["name"] == "narrow_passage":
+            assert item["obstacle_count"] == 4
+        else:
+            assert item["obstacle_count"] >= 6
 
 
 @pytest.mark.parametrize("name", [item["name"] for item in list_scenes()])
@@ -40,7 +44,9 @@ def test_scenes_have_valid_endpoints_and_checked_detour(name):
     assert all(checker.is_motion_valid(a, b) for a, b in zip(detour[:-1], detour[1:], strict=True))
 
 
-@pytest.mark.parametrize("name", ["simple", "scattered", "gate", "shelves", "cluttered"])
+@pytest.mark.parametrize(
+    "name", ["simple", "scattered", "gate", "shelves", "cluttered", "narrow_passage"]
+)
 def test_editable_scene_examples_match_package(name):
     root = Path(__file__).resolve().parents[1] / "configs"
     source = root / "simple.yaml" if name == "simple" else root / "scenes" / f"{name}.yaml"

@@ -59,6 +59,24 @@ def main(argv: list[str] | None = None) -> int:
         choices=("isometric", "front", "side", "top"),
         default=["isometric", "top"],
     )
+    showcase_add = subcommands.add_parser(
+        "showcase-add", help="Добавить отдельный готовый запуск в галерею"
+    )
+    showcase_add.add_argument("directory", type=Path, help="Каталог успешного запуска demo")
+    showcase_add.add_argument("--output", type=Path, default=Path("results/showcase"))
+    showcase_add.add_argument("--scene", help="Имя сцены в галерее")
+    showcase_add.add_argument("--frames", type=int, default=121)
+    showcase_add.add_argument(
+        "--views",
+        nargs="+",
+        choices=("isometric", "front", "side", "top"),
+        default=["isometric", "side"],
+    )
+    showcase_stats = subcommands.add_parser(
+        "showcase-statistics", help="Добавить статистику отдельной сцены в галерею"
+    )
+    showcase_stats.add_argument("directory", type=Path, help="Каталог завершённой парной серии")
+    showcase_stats.add_argument("--output", type=Path, default=Path("results/showcase"))
     experiments = subcommands.add_parser("experiments", help="Парные пакетные эксперименты")
     experiments.add_argument(
         "--scenes", nargs="+", default=["simple", "scattered", "gate", "shelves", "cluttered"]
@@ -117,6 +135,21 @@ def main(argv: list[str] | None = None) -> int:
                 frame_count=args.frames,
                 preferred_seed=args.seed,
             )
+        elif args.command == "showcase-add":
+            from .showcase import add_showcase_run
+
+            add_showcase_run(
+                args.directory,
+                args.output,
+                args.scene,
+                views=tuple(args.views),
+                frame_count=args.frames,
+            )
+        elif args.command == "showcase-statistics":
+            from .showcase import add_showcase_statistics
+
+            result = add_showcase_statistics(args.directory, args.output)
+            print(f"Статистика добавлена: {result['viewer']}")
         elif args.command == "experiments":
             from .experiments import run_experiments
 
