@@ -39,12 +39,15 @@ experiments:
 
 showcase series="results/experiments_current" output="results/showcase":
     uv run manipulator-planning showcase "{{series}}" --output "{{output}}"
+    just pages-snapshot "{{output}}"
 
 showcase-add directory output="results/showcase":
     uv run manipulator-planning showcase-add "{{directory}}" --output "{{output}}"
+    just pages-snapshot "{{output}}"
 
 showcase-statistics directory output="results/showcase":
     uv run manipulator-planning showcase-statistics "{{directory}}" --output "{{output}}"
+    just pages-snapshot "{{output}}"
 
 pages-snapshot source="results/showcase":
     uv run python scripts/build_pages.py snapshot --source "{{source}}"
