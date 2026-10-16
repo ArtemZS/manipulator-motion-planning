@@ -1,0 +1,15 @@
+.venv/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+results/
+.coverage
+htmlcov/
+/docs/IMPLEMENTATION_PLAN_RU.md
+/docs/EXPERIMENT_RESULTS_RU.md
+/docs/presentation/

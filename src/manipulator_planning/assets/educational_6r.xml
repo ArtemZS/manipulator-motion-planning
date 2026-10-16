@@ -1,0 +1,40 @@
+<mujoco model="educational_6r">
+  <compiler angle="radian" autolimits="true"/>
+  <option gravity="0 0 -9.81" timestep="0.002"/>
+  <default>
+    <!-- Расстояния явно запрашиваются через CollisionChecker. Контактные силы
+         отключены: обратная динамика всегда вычисляется как свободный RNE. -->
+    <geom contype="0" conaffinity="0" rgba="0.24 0.52 0.78 1"/>
+    <joint type="hinge" limited="true" damping="0" armature="0"/>
+  </default>
+  <worldbody>
+    <light pos="0 -2 3"/>
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.85 0.87 0.90 1"/>
+    <geom name="base" type="cylinder" pos="0 0 0.14" size="0.10 0.14" rgba="0.23 0.26 0.30 1"/>
+    <body name="yaw" pos="0 0 0.30">
+      <joint name="joint1" axis="0 0 1" range="-2.967 2.967"/>
+      <geom name="link1" type="capsule" fromto="0 0 0 0 0 0.10" size="0.055" mass="1.0"/>
+      <body name="upper_arm" pos="0 0 0.10">
+        <joint name="joint2" axis="0 1 0" range="-2.40 2.10"/>
+        <geom name="link2" type="capsule" fromto="0 0 0 0.42 0 0" size="0.042" mass="0.9"/>
+        <body name="forearm" pos="0.42 0 0">
+          <joint name="joint3" axis="0 1 0" range="-2.60 2.60"/>
+          <geom name="link3" type="capsule" fromto="0 0 0 0.34 0 0" size="0.036" mass="0.7"/>
+          <body name="wrist_roll" pos="0.34 0 0">
+            <joint name="joint4" axis="1 0 0" range="-2.80 2.80"/>
+            <geom name="link4" type="capsule" fromto="0 0 0 0.16 0 0" size="0.031" mass="0.3"/>
+            <body name="wrist_pitch" pos="0.16 0 0">
+              <joint name="joint5" axis="0 1 0" range="-2.40 2.40"/>
+              <geom name="link5" type="capsule" fromto="0 0 0 0.14 0 0" size="0.027" mass="0.2"/>
+              <body name="tool_roll" pos="0.14 0 0">
+                <joint name="joint6" axis="1 0 0" range="-2.80 2.80"/>
+                <geom name="link6" type="capsule" fromto="0 0 0 0.12 0 0" size="0.024" mass="0.12"/>
+                <site name="tool" pos="0.12 0 0" size="0.018" rgba="1 0.6 0.1 1"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

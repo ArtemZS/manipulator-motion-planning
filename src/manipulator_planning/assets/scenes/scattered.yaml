@@ -1,0 +1,108 @@
+# Расстояния в метрах, суставные углы в радианах.
+# diagnostic_detour предназначен только для проверки геометрии в тестах.
+name: scattered
+safety_margin: 0.015
+start:
+- -0.85
+- -0.1
+- 0.25
+- 0.1
+- -0.15
+- 0.1
+goal:
+- 0.85
+- 0.05
+- 0.1
+- -0.1
+- 0.15
+- -0.1
+diagnostic_detour:
+- - -0.85
+  - -0.1
+  - 0.25
+  - 0.1
+  - -0.15
+  - 0.1
+- - -0.85
+  - -0.9
+  - 0.25
+  - 0.1
+  - -0.15
+  - 0.1
+- - 0.85
+  - -0.9
+  - 0.1
+  - -0.1
+  - 0.15
+  - -0.1
+- - 0.85
+  - 0.05
+  - 0.1
+  - -0.1
+  - 0.15
+  - -0.1
+obstacles:
+- name: central_sphere
+  kind: sphere
+  position:
+  - 0.64
+  - 0
+  - 0.37
+  radius: 0.13
+- name: left_block
+  kind: box
+  position:
+  - 0.65
+  - -0.32
+  - 0.22
+  half_size:
+  - 0.16
+  - 0.1
+  - 0.22
+- name: right_block
+  kind: box
+  position:
+  - 0.76
+  - 0.31
+  - 0.18
+  half_size:
+  - 0.12
+  - 0.1
+  - 0.18
+- name: outer_sphere
+  kind: sphere
+  position:
+  - 1.0
+  - 0.12
+  - 0.48
+  radius: 0.15
+- name: rear_column
+  kind: box
+  position:
+  - -0.37
+  - 0.28
+  - 0.43
+  half_size:
+  - 0.1
+  - 0.14
+  - 0.43
+- name: side_ball
+  kind: sphere
+  position:
+  - 0.12
+  - -0.78
+  - 0.36
+  radius: 0.16
+- name: back_box
+  kind: box
+  position:
+  - -0.46
+  - -0.38
+  - 0.14
+  half_size:
+  - 0.17
+  - 0.15
+  - 0.14
+title: Рассеянные препятствия
+description: 'Семь препятствий разного размера: центральная сфера, низкие блоки, внешняя
+  сфера и боковые объекты. Обход центральной группы требует подъёма или ухода в сторону.'

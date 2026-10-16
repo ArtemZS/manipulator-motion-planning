@@ -1,0 +1,76 @@
+name: Обновление showcase на GitHub Pages
+
+"on":
+  push:
+    paths:
+      - ".github/workflows/pages.yml"
+      - ".python-version"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/**"
+      - "configs/**"
+      - "scripts/**"
+      - "tests/**"
+      - "docs/showcase/**"
+      - "docs/experiments/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+env:
+  MPLBACKEND: Agg
+  MPLCONFIGDIR: ${{ github.workspace }}/.cache/matplotlib
+  UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+
+jobs:
+  build:
+    # Публикуется только основная ветка репозитория, включая ручные запуски.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Получить исходники и сохранённые результаты
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Установить uv и Python 3.14
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.23"
+          python-version: "3.14"
+          enable-cache: true
+      - name: Установить зависимости из uv.lock
+        run: uv sync --locked
+      - name: Проверить код и тесты
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync pytest
+      - name: Собрать сцены, анимации, графики и статистику
+        run: uv run --no-sync python scripts/build_pages.py build --output .cache/pages-build
+      - name: Настроить GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Загрузить готовый сайт
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .cache/pages-build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Опубликовать сайт
+        id: deployment
+        uses: actions/deploy-pages@v4

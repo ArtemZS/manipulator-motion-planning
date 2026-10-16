@@ -1,0 +1,118 @@
+# Расстояния в метрах, суставные углы в радианах.
+# diagnostic_detour предназначен только для проверки геометрии в тестах.
+name: cluttered
+safety_margin: 0.015
+start:
+- -0.85
+- -0.1
+- 0.25
+- 0.1
+- -0.15
+- 0.1
+goal:
+- 0.85
+- 0.05
+- 0.1
+- -0.1
+- 0.15
+- -0.1
+diagnostic_detour:
+- - -0.85
+  - -0.1
+  - 0.25
+  - 0.1
+  - -0.15
+  - 0.1
+- - -0.85
+  - -0.9
+  - 0.25
+  - 0.1
+  - -0.15
+  - 0.1
+- - 0.85
+  - -0.9
+  - 0.1
+  - -0.1
+  - 0.15
+  - -0.1
+- - 0.85
+  - 0.05
+  - 0.1
+  - -0.1
+  - 0.15
+  - -0.1
+obstacles:
+- name: central_ball
+  kind: sphere
+  position:
+  - 0.58
+  - -0.08
+  - 0.46
+  radius: 0.17
+- name: offset_ball
+  kind: sphere
+  position:
+  - 0.73
+  - 0.3
+  - 0.57
+  radius: 0.14
+- name: low_beam
+  kind: box
+  position:
+  - 0.62
+  - -0.36
+  - 0.17
+  half_size:
+  - 0.22
+  - 0.1
+  - 0.17
+- name: right_stack
+  kind: box
+  position:
+  - 0.28
+  - 0.6
+  - 0.14
+  half_size:
+  - 0.11
+  - 0.1
+  - 0.14
+- name: outer_post
+  kind: box
+  position:
+  - 1.03
+  - 0.05
+  - 0.46
+  half_size:
+  - 0.09
+  - 0.18
+  - 0.46
+- name: rear_tall
+  kind: box
+  position:
+  - -0.3
+  - 0.3
+  - 0.6
+  half_size:
+  - 0.08
+  - 0.13
+  - 0.6
+- name: floating_beam
+  kind: box
+  position:
+  - 0.75
+  - -0.05
+  - 1.42
+  half_size:
+  - 0.3
+  - 0.13
+  - 0.06
+- name: left_ball
+  kind: sphere
+  position:
+  - -0.13
+  - -0.74
+  - 0.44
+  radius: 0.16
+title: Объёмное загромождение
+description: 'Восемь объектов на разных высотах: смещённые сферы, низкие блоки, высокая
+  стойка и верхняя балка. Безопасный обход центральной группы ограничен сверху.'

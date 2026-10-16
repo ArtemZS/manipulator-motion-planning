@@ -1,0 +1,50 @@
+[project]
+name = "manipulator-planning"
+version = "0.1.0"
+description = "Multi-objective trajectory planning for an educational spatial 6R manipulator"
+readme = "README.md"
+authors = [
+    { name = "ArtemZS", email = "tyuu567tyu@gmail.com" }
+]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "matplotlib>=3.10",
+    "mujoco>=3.4",
+    "numpy>=2.3",
+    "pillow>=11.3",
+    "plotly>=6.0",
+    "pymoo>=0.6.1.5",
+    "pyyaml>=6.0",
+    "scipy>=1.16",
+]
+
+[project.scripts]
+manipulator-planning = "manipulator_planning.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+link-mode = "copy"
+
+[tool.uv.build-backend]
+source-include = ["justfile", ".python-version", "uv.lock", "configs/**", "tests/**", "docs/**", "scripts/**"]
+source-exclude = [".cache", ".venv", ".git", "results", "dist", ".pytest_cache", ".ruff_cache"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "ruff>=0.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --basetemp=.cache/pytest"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
