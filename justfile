@@ -46,6 +46,9 @@ showcase-add directory output="results/showcase":
 showcase-statistics directory output="results/showcase":
     uv run manipulator-planning showcase-statistics "{{directory}}" --output "{{output}}"
 
+pages-export output=".cache/pages-site":
+    uv run python scripts/export_showcase.py --output "{{output}}"
+
 serve port="8766":
     uv run python -m http.server {{port}} --bind 127.0.0.1 --directory results
 
